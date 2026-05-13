@@ -1,139 +1,98 @@
-import json
-import os
-import datetime
-
-panda_data = {
-
-    "name": "panda",
-
-    "energy": 70,
-
-    "video_history": []
-
-}
-def save_memory(data: dict, filepath: str = "memory.json") -> None:
-
-    """Serialise *data* to *filepath* as formatted JSON."""
-
-    try:
-        with open(filepath, "w", encoding="utf-8") as f:
-
-            json.dump(data, f, indent=4)
-
-        print(f"[save] Memory written to '{filepath}'.")
-
-    except IOError as e:
-
-        print(f"[error] Could not write to file: {e}")
-
-def load_memory(filepath: str = "memory.json") -> dict:
-
-    """ Try to read *filepath*.
-
-    - Found → parse and return it.
-
-    - Missing or Corrupt → return default and save it. """
-
-    default = {
-
-        "name": "Unknown Panda",
-
-        "energy": 50,
-
-        "video_history": []
-
-    }
-    if not os.path.exists(filepath):
-
-        print(f"[load] '{filepath}' not found — creating default memory.")
-
-        save_memory(default, filepath)
-
-        return default
-
-    try:
-
-        with open(filepath, "r", encoding="utf-8") as f:
-
-            return json.load(f)
-
-    except (json.JSONDecodeError, ValueError):
-
-        print(f"[error] '{filepath}' is corrupted. Resetting to default.")
-
-        save_memory(default, filepath)
-
-        return default
-
-if __name__ == "__main__":
-
-    save_memory(panda_data)
-    loaded = load_memory()
-    loaded["video_history"].append("Panda eats bamboo.mp4")
-
-    save_memory(loaded)
-    print("Final Video History:", load_memory()["video_history"])
-
-import os
-import datetime
 import panda_brain_v1
+from  panda_brain_v1 import PandaCharacter
+import os
+import json
 
-def show_menu(energy):
-    os.system('cls' if os.name == 'nt' else 'clear')
-    print("---------------------------")
-    print(f" PANDA ENGINE | ENERGY: {energy}%")
-    print("---------------------------")
-    print("1. Status Report")
-    print("2. Sync Weather (Luck Roll)")
-    print("3. Feed Panda (+20)")
-    print("4. Manual Metabolism (-2)")
-    print("5. Exit")
-    print("---------------------------")
-
-def main():
-    # 1. Load memory and ensure we have a timestamp
-    memory = panda_brain_v1.load_memory()
-    if "last_check" not in memory:
-        memory["last_check"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+def play_with_panda(active_panda):
+    # --- STEP 1: DECAY CHECK ---
+    # This runs once when you enter the room
+    active_panda.apply_decay() 
 
     while True:
-        # A. Calculate Time Decay automatically every loop
-        lost_energy, new_time_str = panda_brain_v1.calculate_decay(memory["last_check"])
-        if lost_energy > 0:
-            memory["energy"] = max(0, memory["energy"] - lost_energy)
-            memory["last_check"] = new_time_str
-            print(f"\n[TIME] {lost_energy} energy lost while you were away.")
+        # --- STEP 2: REFRESH MENU ---
+        # We show the options every time a loop finishes
+        active_panda.show_menu() 
+        
+        # --- STEP 3: THE HUNGER BLOCKADE ---
+        if active_panda.energy == 0:
+            print("\n!!! ENERGY IS 0. ONLY FEEDING IS ALLOWED !!!")
+            choice = input("Your only choice is (3) to Feed: ")
+            if choice == "3":
+                active_panda.feedpanda()
+            elif choice == "5": # Let them exit even if hungry
+                break
+            continue # Go back to top of loop
 
-        show_menu(memory["energy"])
-        choice = input("Select: ").strip()
+        # --- STEP 4: NORMAL MENU CHOICES ---
+        choice = input("Command -> ")
 
         if choice == "1":
-            print(f"\n[STATUS] Name: {memory['name']} | Energy: {memory['energy']}")
-            print(f"Last Sync: {memory['last_check']}")
-            input("\nPress Enter...")
-
+            active_panda.status()
         elif choice == "2":
-            temp = panda_brain_v1.get_temp()
-            print(f"\n[WEATHER] Kathmandu is {temp}°C")
-            memory["energy"] = panda_brain_v1.calculate_weather_luck(memory["energy"])
-            panda_brain_v1.save_memory(memory)
-            input("\nPress Enter...")
-
+            active_panda.get_temp()
         elif choice == "3":
-            memory["energy"] = min(100, memory["energy"] + 20)
-            print("\n[FEED] +20 Energy!")
-            panda_brain_v1.save_memory(memory)
-            input("\nPress Enter...")
-
+            active_panda.feedpanda()
         elif choice == "4":
-            memory["energy"] = max(0, memory["energy"] - 2)
-            print("\n[WORK] Panda used 2 energy.")
-            input("\nPress Enter...")
+            active_panda.manual_metabolism()
+        elif choice == active_panda.exist_key:
+            active_panda.save_memory_made() # Final save before leaving
+            print("Returning to Lobby...")
+            break 
+        else:
+            print("Invalid choice!")
 
-        elif choice == "5":
-            panda_brain_v1.save_memory(memory)
-            print("Memory Saved. Goodbye!")
+def main_lobby():
+    while True:
+        os.system('cls' if os.name == 'nt' else 'clear')
+        print("=== WELCOME TO PANDA ENGINE ===")
+        
+        # 1. Scan for existing pandas
+        if not os.path.exists("all_pandas"):
+            os.makedirs("all_pandas")
+            
+        files = os.listdir("all_pandas")
+        pandas = [f.removesuffix(".json") for f in files if f.endswith(".json")]
+
+        # 2. Display the Dynamic Menu
+        for i, name in enumerate(pandas, 1):
+            print(f"{i}. {name}")
+        
+        new_panda_option = len(pandas) + 1
+        print(f"{new_panda_option}. Create New Panda")
+        print("0. Exit Game")
+
+        choice = input("\nSelect an option: ")
+
+        # 3. Handle the choice
+        if choice == "0":
             break
+        
+        # CHOICE: Pick existing Panda
+        elif choice.isdigit() and 1 <= int(choice) <= len(pandas):
+            selected_name = pandas[int(choice) - 1]
+            
+            # Load the data from the file
+            with open(f"all_pandas/{selected_name}.json", "r") as f:
+                data = json.load(f)
+            
+            # Create the object with saved data
+            active_panda = PandaCharacter(
+                name=data["name"], 
+                energy=data["energy"], 
+                logs=data["logs"], 
+                last_check=data.get("last_check") # get() prevents crashing if missing
+            )
+            play_with_panda(active_panda)
+
+        # CHOICE: Create New Panda
+        elif choice == str(new_panda_option):
+            name = input("Enter Panda Name: ")
+            # Start fresh with 0 energy
+            active_panda = PandaCharacter(name, energy=0)
+            active_panda.save_memory_made()
+            play_with_panda(active_panda)
+
+
 
 if __name__ == "__main__":
-    main()
+    main_lobby()

@@ -181,3 +181,4 @@ cython_debug/
 .cursorindexingignore
 
 memory.json
+all_pandas
