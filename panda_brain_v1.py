@@ -3,8 +3,11 @@ import json
 import requests
 import random
 import datetime
+import psutil
+
 
 class PandaCharacter:
+    
     def __init__(self, name, energy=0, logs=None, video_history=None, last_check=None):
         self.name = name
         self.energy = energy
@@ -12,10 +15,18 @@ class PandaCharacter:
         self.video_history = video_history if video_history else []
         self.date_format = "%Y-%m-%d %H:%M:%S"
         self.last_check = last_check if last_check else datetime.datetime.now().strftime(self.date_format)
+        self.vitals={"cpu":0,"ram":0,"batt":0,"temps":0,"charge":0}
+
 
     def show_menu(self):
         print(f"\n--- {self.name.upper()}'S WORLD ---")
-        print("1: STATUS | 2: SYNC TEMP | 3: FEED | 4: WORK | 5: PLAY | 6: SLEEP")
+        print("1: STATUS -------------")
+        print(" 2: SYNC TEMP----------")
+        print ("3: FEED---------------")
+        print(" 4: WORK---------------")
+        print(" 5: PLAY---------------")
+        print(" 6: SLEEP--------------")
+        print("7:MOOD-----------------")
 
     def save_memory_made(self):
         if not os.path.exists("all_pandas"):
@@ -103,6 +114,7 @@ class PandaCharacter:
         self.save_memory_made()
         input("Press Enter...")
 
+
     def apply_decay(self):
         now = datetime.datetime.now()
         last_time = datetime.datetime.strptime(self.last_check, self.date_format)
@@ -111,3 +123,51 @@ class PandaCharacter:
             self.energy = max(0, self.energy - (blocks * 2))
             self.last_check = now.strftime(self.date_format)
             self.save_memory_made()
+    
+    def mood_now(self):
+         cpu_val = self.vitals.get('cpu', 0) # Use .get to avoid "KeyError"
+         print(f"Your CPU status is {cpu_val}%")
+         if cpu_val > 70:
+           print("PANDA IS IN STRESS RIGHT NOW")
+         else:
+           print("PANDA IS IN A GOOD MOOD!!!!")
+
+    def background_monitor(self):
+        try:
+            self.vitals["cpu"] = psutil.cpu_percent()
+            self.vitals["ram"] = psutil.virtual_memory().percent
+            batt = psutil.sensors_battery()
+            if batt:
+                self.vitals["batt"] = batt.percent
+                self.vitals["charge"] = batt.power_plugged
+            else:
+                self.vitals["charge"] = True # Default for desktops
+        except:
+           pass
+    def check_hunger(self):
+        # 1. Update the battery status
+        batt_data = self.vitals.get('batt')
+        is_plugged = self.vitals.get('charge', True) # Default to True if unknown
+
+        # 2. If plugged in, Pandy is happy. Exit.
+        if is_plugged:
+            return 
+
+        # 3. The Lockdown Loop
+        if self.energy < 20:
+            print(f"\n!!! LOW ENERGY ({self.energy}%) !!!")
+            
+            while True:  
+                print(f"Pandy: I'm too weak! Type 'feed' or '3' to help!")
+                user_input = input(f"[{self.name} > FEED]: ").lower().strip()
+
+                # Check for BOTH 'feed' and '3'
+                if user_input == "feed" or user_input == "3":
+                    self.energy += 40 
+                    if self.energy > 100: self.energy = 100
+                    
+                    print(f"Pandy: Om nom nom! Energy is now {self.energy}%.")
+                    self.save_memory_made() 
+                    break  # This exits the loop and goes back to the main menu
+                else:
+                    print("Pandy: No... I need bamboo (Type 'feed' or '3')...")
