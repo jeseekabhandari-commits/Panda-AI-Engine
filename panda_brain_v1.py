@@ -9,13 +9,35 @@ import psutil
 class PandaCharacter:
     
     def __init__(self, name, energy=0, logs=None, video_history=None, last_check=None):
+       # 1. Define the basics first
         self.name = name
-        self.energy = energy
-        self.logs = logs if logs else []
-        self.video_history = video_history if video_history else []
-        self.date_format = "%Y-%m-%d %H:%M:%S"
-        self.last_check = last_check if last_check else datetime.datetime.now().strftime(self.date_format)
+        self.save_path = f"all_pandas/{self.name}.json"
+        
+        # 2. Try to LOAD from the file
+        try:
+            with open(self.save_path, 'r') as f:
+                data = json.load(f)
+                # If we get here, the file is GOOD. Use the data!
+                self.energy = data.get('energy', 100)
+                self.logs = data.get('logs', [])
+                self.last_check = data.get('last_check', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+               
+        except (json.JSONDecodeError, FileNotFoundError, ValueError):
+            # 3. IF THE SHIELD TRIGGERS (File is missing, corrupted, or nonsense)
+            print(f"\n[SYSTEM]: Memory corrupted or missing for {self.name}. Resetting brain...")
+             
+            # Use Safe-Mode Defaults
+            self.energy = 100 
+            self.logs = []
+            self.last_check = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            self.write_log("CRITICAL: JSON corruption detected. Memory was wiped.")
+        # 4. Initialize the rest normally
+        self.vitals = {"cpu": 0, "ram": 0, "batt": 0, "temps": 0, "charge": 0}
+        self.video_history = []
         self.vitals={"cpu":0,"ram":0,"batt":0,"temps":0,"charge":0}
+        self.date_format="%Y-%m-%d %H:%M:%S"
+        
+           
 
 
     def show_menu(self):
@@ -27,6 +49,7 @@ class PandaCharacter:
         print(" 5: PLAY---------------")
         print(" 6: SLEEP--------------")
         print("7:MOOD-----------------")
+        print("8:LOGS-----------------")
 
     def save_memory_made(self):
         if not os.path.exists("all_pandas"):
@@ -74,8 +97,9 @@ class PandaCharacter:
             # Keep energy between 0 and 100
 
             self.energy = max(0, min(100, self.energy))
+            self.write_log("FETCHING TEMPERATURE!!")
 
-            self.save_memory_made() # Always save after a change!
+             # Always save after a change!
 
             input("\nPress Enter...")
 
@@ -87,13 +111,14 @@ class PandaCharacter:
     def feedpanda(self):
         self.energy = min(100, self.energy + 20)
         print("\n[FEED] Yum! +20 Energy.")
-        self.save_memory_made()
+       
+        self.write_log("EVENT: panda was fed a bamboo snak")
         input("Press Enter...")
 
     def manual_metabolism(self):
         self.energy = max(0, self.energy - 5)
         print("\n[WORK] Panda worked hard. -5 Energy.")
-        self.save_memory_made()
+        self.write_log("MANUAL METABOLISM SCAN")
         input("Press Enter...")
 
     def play_game(self):
@@ -105,24 +130,24 @@ class PandaCharacter:
         else:
             print("OPPS YOU HAVE A BAD DAY TODAY")
             print("\n[PLAY] Fun times!")
-        self.save_memory_made()
+        self.write_log("PLAY TIME!!!")
         input("Press Enter...")
 
     def sleep(self): # Fixed: Added 'self'
         self.energy = 100
         print("\n[SLEEP] Fully Restored!")
-        self.save_memory_made()
+        self.write_log("SLEEP!!")
         input("Press Enter...")
 
 
     def apply_decay(self):
         now = datetime.datetime.now()
-        last_time = datetime.datetime.strptime(self.last_check, self.date_format)
+        last_time = datetime.datetime.strptime(self.last_check, "%Y-%m-%d %H:%M:%S")
         blocks = int((now - last_time).total_seconds() // 120)
         if blocks > 0:
             self.energy = max(0, self.energy - (blocks * 2))
             self.last_check = now.strftime(self.date_format)
-            self.save_memory_made()
+        self.write_log("check for decay")
     
     def mood_now(self):
          cpu_val = self.vitals.get('cpu', 0) # Use .get to avoid "KeyError"
@@ -141,9 +166,13 @@ class PandaCharacter:
                 self.vitals["batt"] = batt.percent
                 self.vitals["charge"] = batt.power_plugged
             else:
+                self.vitals["batt"]=100
                 self.vitals["charge"] = True # Default for desktops
-        except:
-           pass
+        except Exception as e:
+           print(f"⚠️ Sensor Warning: Entering Safe Mode! (Error: {e})")
+        if self.vitals["batt"] < 15:
+            self.write_log("BATTERY CRITICALLY LOW!!")
+   
     def check_hunger(self):
         # 1. Update the battery status
         batt_data = self.vitals.get('batt')
@@ -171,3 +200,20 @@ class PandaCharacter:
                     break  # This exits the loop and goes back to the main menu
                 else:
                     print("Pandy: No... I need bamboo (Type 'feed' or '3')...")
+    def write_log(self,message):
+           time=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+           log_entry =f"[{time}] {message} / Energy : {self.energy} / CPU:{self.vitals['cpu']}%"
+           self.logs.append(log_entry)
+           if len(self.logs) > 20:
+               self.logs.pop(0)
+           self.save_memory_made()
+    def show_log(self):
+        # In your main loop or a choice menu
+    
+        print(f"\n--- {self.name}'s Memory Logs ---")
+        if not self.logs:
+           print("No memories recorded yet.")
+        else:
+            for entry in self.logs:
+               print(entry)
+        input("\nPress Enter to go back...")

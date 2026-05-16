@@ -14,7 +14,8 @@ def process_pandy_logic(user_input):
         "MANUAL": ["work", "manual"],
         "GET": ["temp", "weather"],
         "CREATE": ["create", "new"],
-        "MOOD": ["mood", "cpu"]
+        "MOOD": ["mood", "cpu"],
+        "LOGS":["log","logs"]
     }
     
     detected_action = None
@@ -37,7 +38,8 @@ def main_game_loop(active_panda):
         '4': active_panda.manual_metabolism,
         '5': active_panda.play_game,
         '6': active_panda.sleep,
-        '7': active_panda.mood_now
+        '7': active_panda.mood_now,
+        '8':active_panda.show_log
     }
 
     while True:
@@ -65,6 +67,7 @@ def main_game_loop(active_panda):
                 elif "PLAY" in result: action_code = '5'
                 elif "SLEEP" in result: action_code = '6'
                 elif "MOOD" in result: action_code = '7'
+                elif "logs" in result :action_code = '8'
                 elif "CREATE" in result: return # Back to lobby
                 
                 if action_code: action_map[action_code]()
@@ -101,6 +104,8 @@ def main_lobby():
             name = pandas[int(choice) - 1]
             p = PandaCharacter(name=name) # Simplified load
             play_with_panda(p)
+        # In your main loop or a choice menu
+    input("\nPress Enter to go back...")
 
 if __name__ == "__main__":
     main_lobby()
