@@ -29,3 +29,15 @@ How to Run
 2:Ensure you have the requests library installed: pip install requests.
 
 3:Run python product_manager.py to start the engine.
+
+System Modularization
+
+The engine has been refactored for better scalability and security.
+
+New Module: vitals.py now encapsulates all psutil dependencies, shielding the main brain from low-level hardware calls.
+
+Logic Decoupling: The PandaCharacter now "owns" a VitalsEngine instance, demonstrating a cleaner Class-based architecture.
+
+Hardware-Driven UX: Added a blocking hunger_check loop that prevents system execution during low-power states until the "Feed" (NLP/Command) intent is satisfied.
+
+Robustness: Implemented try-except blocks across sensor readings to ensure a "Safe Mode" fallback if hardware data is unavailable.

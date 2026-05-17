@@ -2,6 +2,7 @@ import os
 from textblob import TextBlob
 from panda_brain_v1 import PandaCharacter
 
+
 def process_pandy_logic(user_input):
     blob = TextBlob(user_input)
     is_negated = blob.sentiment.polarity < -0.1 or "not" in user_input.lower()
@@ -43,12 +44,14 @@ def main_game_loop(active_panda):
     }
 
     while True:
-        result = "" # Ensure result is always defined
+        result = ""
+         # Ensure result is always defined
         active_panda.background_monitor()
         active_panda.show_menu()
         print(f"Current Energy: {active_panda.energy}%")
-        
+        active_panda.hunger_check()
         # 4. Check if we need to force a feed (The Hunger Wall)
+
         user_choice = input(f"\n[{active_panda.name}] Choice: ").lower().strip()
 
         if user_choice in action_map:
@@ -67,13 +70,13 @@ def main_game_loop(active_panda):
                 elif "PLAY" in result: action_code = '5'
                 elif "SLEEP" in result: action_code = '6'
                 elif "MOOD" in result: action_code = '7'
-                elif "logs" in result :action_code = '8'
+                elif "LOGS" in result :action_code = '8'
                 elif "CREATE" in result: return # Back to lobby
                 
                 if action_code: action_map[action_code]()
             else:
                 print("Panda: 'I don't understand that!'")
-            active_panda.check_hunger()
+            active_panda.check_hunger(active_panda)
 def play_with_panda(active_panda):
     active_panda.apply_decay() 
     main_game_loop(active_panda)
@@ -98,11 +101,14 @@ def main_lobby():
             name = input("New Name: ").strip()
             if name:
                 p = PandaCharacter(name=name)
+                p.check_first_boot()
                 p.save_memory_made()
                 play_with_panda(p)
         elif choice.isdigit() and 1 <= int(choice) <= len(pandas):
             name = pandas[int(choice) - 1]
-            p = PandaCharacter(name=name) # Simplified load
+            p = PandaCharacter(name=name)
+             # Simplified load
+            p.check_first_boot()
             play_with_panda(p)
         # In your main loop or a choice menu
     input("\nPress Enter to go back...")

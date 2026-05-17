@@ -3,14 +3,18 @@ import json
 import requests
 import random
 import datetime
-import psutil
+from vitals_engine import VitalsEngine
 
 
 class PandaCharacter:
-    
-    def __init__(self, name, energy=0, logs=None, video_history=None, last_check=None):
+  
+    def __init__(self, name, energy=0, logs=None, video_history=None, last_check=None,user_profile=None):
        # 1. Define the basics first
         self.name = name
+        self.video_history = []
+        self.new=VitalsEngine()
+        self.date_format="%Y-%m-%d %H:%M:%S"
+        self.user_profile={"name": "Unknown","goal": "None","joined_date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         self.save_path = f"all_pandas/{self.name}.json"
         
         # 2. Try to LOAD from the file
@@ -21,7 +25,7 @@ class PandaCharacter:
                 self.energy = data.get('energy', 100)
                 self.logs = data.get('logs', [])
                 self.last_check = data.get('last_check', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-               
+                self.user_profile=data.get('user_profile',[])
         except (json.JSONDecodeError, FileNotFoundError, ValueError):
             # 3. IF THE SHIELD TRIGGERS (File is missing, corrupted, or nonsense)
             print(f"\n[SYSTEM]: Memory corrupted or missing for {self.name}. Resetting brain...")
@@ -31,12 +35,9 @@ class PandaCharacter:
             self.logs = []
             self.last_check = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             self.write_log("CRITICAL: JSON corruption detected. Memory was wiped.")
+            self.save_memory_made()
         # 4. Initialize the rest normally
-        self.vitals = {"cpu": 0, "ram": 0, "batt": 0, "temps": 0, "charge": 0}
-        self.video_history = []
-        self.vitals={"cpu":0,"ram":0,"batt":0,"temps":0,"charge":0}
-        self.date_format="%Y-%m-%d %H:%M:%S"
-        
+       
            
 
 
@@ -59,10 +60,29 @@ class PandaCharacter:
             "energy": self.energy,
             "logs": self.logs,
             "video_history": self.video_history,
-            "last_check": self.last_check
+            "last_check": self.last_check,
+            "user_profile":self.user_profile
         }
         with open(f"all_pandas/{self.name}.json", "w") as f:
             json.dump(data, f, indent=4)
+    
+    
+    def write_log(self,message):
+         
+           try:
+             time=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+             cpu_val = self.new.vitals['cpu']
+             log_entry =f"[{time}] {message} / Energy : {self.energy} / CPU:{cpu_val['cpu']}%"
+             self.logs.append(log_entry)
+             if len(self.logs) > 20:
+                self.logs.pop(0)
+             self.save_memory_made()
+             print(f"✔️ Log updated: {message}")
+        
+           except Exception as e:
+             print(f"⚠️ Log failed: {e}")
+   
+
 
     def status(self):
         print(f"\n[STATUS] {self.name} | Energy: {self.energy}%")
@@ -150,29 +170,12 @@ class PandaCharacter:
         self.write_log("check for decay")
     
     def mood_now(self):
-         cpu_val = self.vitals.get('cpu', 0) # Use .get to avoid "KeyError"
-         print(f"Your CPU status is {cpu_val}%")
-         if cpu_val > 70:
-           print("PANDA IS IN STRESS RIGHT NOW")
-         else:
-           print("PANDA IS IN A GOOD MOOD!!!!")
-
+         mood=self.new.get_mood()
+         print(f"PANDA IS IN {mood}  RIGHT NOW")
+        
     def background_monitor(self):
-        try:
-            self.vitals["cpu"] = psutil.cpu_percent()
-            self.vitals["ram"] = psutil.virtual_memory().percent
-            batt = psutil.sensors_battery()
-            if batt:
-                self.vitals["batt"] = batt.percent
-                self.vitals["charge"] = batt.power_plugged
-            else:
-                self.vitals["batt"]=100
-                self.vitals["charge"] = True # Default for desktops
-        except Exception as e:
-           print(f"⚠️ Sensor Warning: Entering Safe Mode! (Error: {e})")
-        if self.vitals["batt"] < 15:
-            self.write_log("BATTERY CRITICALLY LOW!!")
-   
+        self.new.update_sensors()
+
     def check_hunger(self):
         # 1. Update the battery status
         batt_data = self.vitals.get('batt')
@@ -201,12 +204,19 @@ class PandaCharacter:
                 else:
                     print("Pandy: No... I need bamboo (Type 'feed' or '3')...")
     def write_log(self,message):
-           time=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-           log_entry =f"[{time}] {message} / Energy : {self.energy} / CPU:{self.vitals['cpu']}%"
-           self.logs.append(log_entry)
-           if len(self.logs) > 20:
-               self.logs.pop(0)
-           self.save_memory_made()
+           try:
+             time=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+             cpu_val = self.vitals.get('cpu', 0)
+             log_entry =f"[{time}] {message} / Energy : {self.energy} / CPU:{cpu_val}%"
+             self.logs.append(log_entry)
+             if len(self.logs) > 20:
+                self.logs.pop(0)
+             self.save_memory_made()
+             print(f"✔️ Log updated: {message}")
+        
+           except Exception as e:
+             print(f"⚠️ Log failed: {e}")
+   
     def show_log(self):
         # In your main loop or a choice menu
     
@@ -217,3 +227,62 @@ class PandaCharacter:
             for entry in self.logs:
                print(entry)
         input("\nPress Enter to go back...")
+
+    def setup_wizard(self):
+       print("\n--- PANDY INITIALIZATION ---")
+    
+    # 1. Validation Loop (Don't let them leave it blank)
+       while True:
+            name = input("I am Pandy. Who is my primary operator? ").strip()
+            if name: # Checks if the string is not empty
+                self.user_profile['name'] = name
+                break
+            print("⚠️ I need a name to initialize my core. Please try again.")
+
+       print(f"\nNice to meet you, {self.user_profile['name']}.")
+    
+       # 2. Capture the Mission
+       goal = input("What is our main objective for this 100-day sprint? ").strip()
+       self.user_profile['goal'] = goal if goal else "General AI Development"
+
+       # 3. Persistence & Logging
+       try:
+            self.write_log(f"System synced with {self.user_profile['name']}. Mission: {self.user_profile['goal']}")
+            self.save_memory_made()
+            print("\n[SUCCESS] Initialization complete. Let's get to work.")
+       except Exception as e:
+              print(f"⚠️ Error saving profile: {e}")
+
+    def check_first_boot(self):
+          # Check if the name is still the default
+        if self.user_profile['name'] == "Unknown":
+            self.setup_wizard()
+            
+        else:
+           print(f"Welcome back, Agent {self.user_profile['name']}.")
+   
+    def hunger_check(self):
+    # 'new' is your VitalsEngine instance
+         if self.new.needs_food():
+            print(f"\n[SYSTEM]: Pandy is at {self.energy}% energy and is UNPLUGGED.")
+            print("!!! LOCKDOWN ACTIVE: PANDY NEEDS BAMBOO !!!")
+        
+         while True:
+               user_input = input("Pandy [STREAVING] > ").lower().strip()
+            
+              # Use your keyword list
+               if any(word in user_input for word in ["feed", "eat", "3", "bamboo"]):
+                # 1. Update the Vitals/Body state
+                   self.energy = 100 
+                
+                # 2. Log the event
+                   self.write_log("Emergency feeding completed.")
+                
+                # 3. SAVE to the JSON (Very important!)
+                   self.save_memory_made()
+                
+                   print("Pandy: Om nom nom! System restored. You may proceed.")
+                   break # This breaks the 'Wall' and lets the program continue
+               else:
+                print("Wall: Pandy is too weak to move. Feed him first!")     
+            
