@@ -5,13 +5,13 @@ Overview
 This project is part of a 100-Day AI Product Engineering Sprint. It is a state-managed engine that simulates an AI character named "Pandy." The engine uses Object-Oriented Programming (OOP) to manage multiple character instances, each with its own persistent memory and metabolism logic.
 
 Key Features
-Dynamic Character Management: Automatically detects and loads character profiles from local JSON storage.
+1)Dynamic Character Management: Automatically detects and loads character profiles from local JSON storage.
 
-Encapsulated Logic: A central PandaCharacter class handles all state updates, saving/loading, and behavior.
+2)Encapsulated Logic: A central PandaCharacter class handles all state updates, saving/loading, and behavior.
 
-Real-time Environment: Integrates with the Open-Meteo API to fetch live weather data for Kathmandu, which influences the panda's energy levels.
+3)Real-time Environment: Integrates with the Open-Meteo API to fetch live weather data for Kathmandu, which influences the panda's energy levels.
 
-State Decay System: Implements a time-based metabolism where energy levels drop based on the actual time passed since the last interaction.
+4)State Decay System: Implements a time-based metabolism where energy levels drop based on the actual time passed since the last       interaction.
 
 Tech Stack
 Language: Python
@@ -41,3 +41,17 @@ Logic Decoupling: The PandaCharacter now "owns" a VitalsEngine instance, demonst
 Hardware-Driven UX: Added a blocking hunger_check loop that prevents system execution during low-power states until the "Feed" (NLP/Command) intent is satisfied.
 
 Robustness: Implemented try-except blocks across sensor readings to ensure a "Safe Mode" fallback if hardware data is unavailable.
+
+      Sprint Update: Emotional State Integration
+ 
+Today’s update adds a layer of "Personality" to the system by linking hardware vitals to response strings.
+
+Technical Details:
+
+Module: Added personality.py containing the PandyVoice class🐼🐼.
+
+Data Flow: Refactored the Brain to request a mood_label (String) from the Body, which is then used as a key in the PandyVoice dictionary to return a randomized response.
+
+Fix: Resolved TypeError: unhashable type: 'list' by ensuring the system passes immutable strings for dictionary lookups rather than mutable lists of phrases.
+
+Efficiency: Optimized conditional checks using Pythonic boolean evaluation (e.g., if stats['charge']:).

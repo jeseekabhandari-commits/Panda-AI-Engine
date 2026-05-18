@@ -1,7 +1,7 @@
 import os
 from textblob import TextBlob
 from panda_brain_v1 import PandaCharacter
-
+from personality import PandyVoice
 
 def process_pandy_logic(user_input):
     blob = TextBlob(user_input)
@@ -16,7 +16,8 @@ def process_pandy_logic(user_input):
         "GET": ["temp", "weather"],
         "CREATE": ["create", "new"],
         "MOOD": ["mood", "cpu"],
-        "LOGS":["log","logs"]
+        "LOGS":["log","logs"],
+        "NLP":["nlp","nl","np","chat","let's","let"]
     }
     
     detected_action = None
@@ -40,7 +41,8 @@ def main_game_loop(active_panda):
         '5': active_panda.play_game,
         '6': active_panda.sleep,
         '7': active_panda.mood_now,
-        '8':active_panda.show_log
+        '8':active_panda.show_log,
+        'nlp':active_panda.make
     }
 
     while True:
@@ -71,6 +73,7 @@ def main_game_loop(active_panda):
                 elif "SLEEP" in result: action_code = '6'
                 elif "MOOD" in result: action_code = '7'
                 elif "LOGS" in result :action_code = '8'
+                elif "NLP" in result :action_code = 'nlp'
                 elif "CREATE" in result: return # Back to lobby
                 
                 if action_code: action_map[action_code]()
@@ -80,6 +83,7 @@ def main_game_loop(active_panda):
 def play_with_panda(active_panda):
     active_panda.apply_decay() 
     main_game_loop(active_panda)
+
 
 def main_lobby():
     while True:

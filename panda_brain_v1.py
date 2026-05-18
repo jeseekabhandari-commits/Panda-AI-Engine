@@ -4,7 +4,7 @@ import requests
 import random
 import datetime
 from vitals_engine import VitalsEngine
-
+from personality import PandyVoice
 
 class PandaCharacter:
   
@@ -13,6 +13,7 @@ class PandaCharacter:
         self.name = name
         self.video_history = []
         self.new=VitalsEngine()
+        self.made=PandyVoice()
         self.date_format="%Y-%m-%d %H:%M:%S"
         self.user_profile={"name": "Unknown","goal": "None","joined_date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         self.save_path = f"all_pandas/{self.name}.json"
@@ -51,6 +52,7 @@ class PandaCharacter:
         print(" 6: SLEEP--------------")
         print("7:MOOD-----------------")
         print("8:LOGS-----------------")
+        print("nlp:LET'S CHAT---------")
 
     def save_memory_made(self):
         if not os.path.exists("all_pandas"):
@@ -77,10 +79,9 @@ class PandaCharacter:
              if len(self.logs) > 20:
                 self.logs.pop(0)
              self.save_memory_made()
-             print(f"✔️ Log updated: {message}")
         
            except Exception as e:
-             print(f"⚠️ Log failed: {e}")
+             pass
    
 
 
@@ -176,11 +177,11 @@ class PandaCharacter:
     def background_monitor(self):
         self.new.update_sensors()
 
-    def check_hunger(self):
+    def check_hunger(self,data):
         # 1. Update the battery status
-        batt_data = self.vitals.get('batt')
-        is_plugged = self.vitals.get('charge', True) # Default to True if unknown
-
+        batt_data = self.new.vitals.get('batt')
+        is_plugged = self.new.vitals.get('charge', True) # Default to True if unknown
+        
         # 2. If plugged in, Pandy is happy. Exit.
         if is_plugged:
             return 
@@ -212,10 +213,10 @@ class PandaCharacter:
              if len(self.logs) > 20:
                 self.logs.pop(0)
              self.save_memory_made()
-             print(f"✔️ Log updated: {message}")
+             
         
            except Exception as e:
-             print(f"⚠️ Log failed: {e}")
+             pass
    
     def show_log(self):
         # In your main loop or a choice menu
@@ -261,28 +262,39 @@ class PandaCharacter:
         else:
            print(f"Welcome back, Agent {self.user_profile['name']}.")
    
+
     def hunger_check(self):
     # 'new' is your VitalsEngine instance
          if self.new.needs_food():
-            print(f"\n[SYSTEM]: Pandy is at {self.energy}% energy and is UNPLUGGED.")
-            print("!!! LOCKDOWN ACTIVE: PANDY NEEDS BAMBOO !!!")
+               print(f"\n[SYSTEM]: Pandy is at {self.energy}% energy and is UNPLUGGED.")
+               print("!!! LOCKDOWN ACTIVE: PANDY NEEDS BAMBOO !!!")
         
-         while True:
-               user_input = input("Pandy [STREAVING] > ").lower().strip()
+               while True:
+               
+                     user_input = input("Pandy [STREAVING] > ").lower().strip()
             
               # Use your keyword list
-               if any(word in user_input for word in ["feed", "eat", "3", "bamboo"]):
+                     if any(word in user_input for word in ["feed", "eat", "3", "bamboo"]):
                 # 1. Update the Vitals/Body state
-                   self.energy = 100 
+                         self.energy = 100 
                 
                 # 2. Log the event
-                   self.write_log("Emergency feeding completed.")
+                         self.write_log("Emergency feeding completed.")
                 
                 # 3. SAVE to the JSON (Very important!)
-                   self.save_memory_made()
+                         self.save_memory_made()
                 
-                   print("Pandy: Om nom nom! System restored. You may proceed.")
-                   break # This breaks the 'Wall' and lets the program continue
-               else:
-                print("Wall: Pandy is too weak to move. Feed him first!")     
-            
+                         print("Pandy: Om nom nom! System restored. You may proceed.")
+                         break # This breaks the 'Wall' and lets the program continue
+                     else:
+                         print("Wall: Pandy is too weak to move. Feed him first!")
+         else:
+                pass   
+
+
+
+    def make(self):
+            current_mood= self.made.get_current_mood()
+            pandy_msg=self.made.speak(current_mood)
+            print(f"\n[Pandy]:{pandy_msg}")
+          
