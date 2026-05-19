@@ -26,9 +26,7 @@ class PandyVoice:
         return random.choice(options)
     
     
-    def get_current_mood(self):
-    # Ask Vitals for the data
-      stats = self.stri.vitals 
+    def get_current_mood(self,stats):
     
     # Logic for "Full and Energetic"
       if stats['charge'] == True and stats['batt'] > 80:

@@ -294,7 +294,8 @@ class PandaCharacter:
 
 
     def make(self):
-            current_mood= self.made.get_current_mood()
+            current_hardware_data=self.new.vitals
+            current_mood= self.made.get_current_mood(current_hardware_data)
             pandy_msg=self.made.speak(current_mood)
             print(f"\n[Pandy]:{pandy_msg}")
           
