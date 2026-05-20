@@ -6,7 +6,7 @@ from personality import PandyVoice
 def process_pandy_logic(user_input):
     blob = TextBlob(user_input)
     is_negated = blob.sentiment.polarity < -0.1 or "not" in user_input.lower()
-    
+
     intents = {
         "STATUS": ["status", "energy"],
         "FEED": ["eat", "food", "feed"],
@@ -55,7 +55,11 @@ def main_game_loop(active_panda):
         # 4. Check if we need to force a feed (The Hunger Wall)
 
         user_choice = input(f"\n[{active_panda.name}] Choice: ").lower().strip()
-
+        noemood=active_panda.new.get_mood()
+        if noemood =="stressed":
+         {
+           active_panda.make()
+         }
         if user_choice in action_map:
             action_map[user_choice]()
         else:

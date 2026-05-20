@@ -24,6 +24,4 @@ class VitalsEngine:
         if cpu > 70: return "STRESSED"
         return "CALM"
 
-    def needs_food(self):
-        """Just returns True/False. Let the Brain/Body handle the loop."""
-        return self.energy < 20 and not self.vitals["charge"]
+    

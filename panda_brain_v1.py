@@ -265,7 +265,7 @@ class PandaCharacter:
 
     def hunger_check(self):
     # 'new' is your VitalsEngine instance
-         if self.new.needs_food():
+         if self.energy < 10:
                print(f"\n[SYSTEM]: Pandy is at {self.energy}% energy and is UNPLUGGED.")
                print("!!! LOCKDOWN ACTIVE: PANDY NEEDS BAMBOO !!!")
         
@@ -289,13 +289,22 @@ class PandaCharacter:
                      else:
                          print("Wall: Pandy is too weak to move. Feed him first!")
          else:
-                pass   
+                 pass   
 
 
 
     def make(self):
             current_hardware_data=self.new.vitals
             current_mood= self.made.get_current_mood(current_hardware_data)
-            pandy_msg=self.made.speak(current_mood)
-            print(f"\n[Pandy]:{pandy_msg}")
+            if current_mood =="stressed":
+                 print("[CRITICAL SYSTEM ERROR]: PANDY IS OVERHEATING!")
+                 print("Fluff temp and CPU levels are too dangerous to continue.")
+                 print("Shutting down the terminal application immediately...")
+                 self.sleep();
+                 log_msf=f"CRITICAL SHUTDOWN-CPU:{current_hardware_data['cpu']} // batt:{current_hardware_data['batt']}%"
+                 self.write_log(log_msf);
+                 
+            else:
+               pandy_msg=self.made.speak(current_mood)
+               print(f"\n[Pandy]:{pandy_msg}")
           

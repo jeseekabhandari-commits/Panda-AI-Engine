@@ -55,3 +55,13 @@ Data Flow: Refactored the Brain to request a mood_label (String) from the Body, 
 Fix: Resolved TypeError: unhashable type: 'list' by ensuring the system passes immutable strings for dictionary lookups rather than mutable lists of phrases.
 
 Efficiency: Optimized conditional checks using Pythonic boolean evaluation (e.g., if stats['charge']:).
+        
+        
+           Structural Guardrails & Architectural Review🐼🐼
+Shifted focus to system stability, defensive programming, and verifying internal data flow patterns.
+
+1)Autonomous Interception: Implemented a system-wide freeze within the .make() engine method to intercept user inputs if state evaluates to "stressed".
+
+2)Diagnostic Logging: Upgraded the logging system to capture a structured payload format (f"CRITICAL SHUTDOWN - CPU: {cpu}% | Batt: {batt}%") on failure points instead of loose text strings.
+
+3)Code Review: Audited decoupled communication between personality.py and the main orchestration loop to enforce immutable data hand-offs.
