@@ -65,3 +65,10 @@ Shifted focus to system stability, defensive programming, and verifying internal
 2)Diagnostic Logging: Upgraded the logging system to capture a structured payload format (f"CRITICAL SHUTDOWN - CPU: {cpu}% | Batt: {batt}%") on failure points instead of loose text strings.
 
 3)Code Review: Audited decoupled communication between personality.py and the main orchestration loop to enforce immutable data hand-offs.
+
+
+  🛡️ Configuration & Runtime Security Layer
+
+The engine utilizes an isolated environment configuration architecture to separate core application logic from sensitive runtime variables (such as third-party AI platform credentials).
+
+### System Flow Diagram

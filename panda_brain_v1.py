@@ -6,6 +6,9 @@ import datetime
 from vitals_engine import VitalsEngine
 from personality import PandyVoice
 
+
+# Your other imports (like json, time, etc.) go down here...
+
 class PandaCharacter:
   
     def __init__(self, name, energy=0, logs=None, video_history=None, last_check=None,user_profile=None):
@@ -246,7 +249,7 @@ class PandaCharacter:
        goal = input("What is our main objective for this 100-day sprint? ").strip()
        self.user_profile['goal'] = goal if goal else "General AI Development"
 
-       # 3. Persistence & Logging
+       # 3. Persistence & Logging to the update mode 
        try:
             self.write_log(f"System synced with {self.user_profile['name']}. Mission: {self.user_profile['goal']}")
             self.save_memory_made()

@@ -2,6 +2,9 @@ import os
 from textblob import TextBlob
 from panda_brain_v1 import PandaCharacter
 from personality import PandyVoice
+from dotenv import load_dotenv
+
+# Your other imports (like json, time, etc.) go down here...
 
 def process_pandy_logic(user_input):
     blob = TextBlob(user_input)
@@ -122,4 +125,21 @@ def main_lobby():
     input("\nPress Enter to go back...")
 
 if __name__ == "__main__":
+    # 1. Load the environment variables instantly
+    load_dotenv()
+
+    # 2. Extract the key from memory
+    api_key = os.environ.get("GEMINI_API_KEY")
+
+    # 3. Trigger the defensive gatekeeper check
+    if not api_key:
+        print("\n[CRITICAL ERROR]: System boot aborted.")
+        print("Reason: 'GEMINI_API_KEY' is missing from the environment configuration.")
+        print("Action Required: Check your local .env file.\n")
+        exit()
+
+    # 4. If it passes, your existing code runs safely below this line
+    print("[SYSTEM]: Environment verified. Booting Panda AI Engine...")
+    # Your engine initialization or menu loop goes here
+   
     main_lobby()
