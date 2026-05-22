@@ -3,6 +3,7 @@ from textblob import TextBlob
 from panda_brain_v1 import PandaCharacter
 from personality import PandyVoice
 from dotenv import load_dotenv
+from panda_brain_v1 import PandaBrain
 
 # Your other imports (like json, time, etc.) go down here...
 
@@ -20,7 +21,8 @@ def process_pandy_logic(user_input):
         "CREATE": ["create", "new"],
         "MOOD": ["mood", "cpu"],
         "LOGS":["log","logs"],
-        "NLP":["nlp","nl","np","chat","let's","let"]
+        "NLP":["nlp","nl","np","chat","let's","let"],
+        "ASK":["talk","ask","lets","sure"]
     }
     
     detected_action = None
@@ -45,7 +47,8 @@ def main_game_loop(active_panda):
         '6': active_panda.sleep,
         '7': active_panda.mood_now,
         '8':active_panda.show_log,
-        'nlp':active_panda.make
+        'nlp':active_panda.make,
+        '9':brain.handle_chat_session
     }
 
     while True:
@@ -81,6 +84,8 @@ def main_game_loop(active_panda):
                 elif "MOOD" in result: action_code = '7'
                 elif "LOGS" in result :action_code = '8'
                 elif "NLP" in result :action_code = 'nlp'
+                elif "ASK" in result : action_code='9'
+
                 elif "CREATE" in result: return # Back to lobby
                 
                 if action_code: action_map[action_code]()
@@ -141,5 +146,5 @@ if __name__ == "__main__":
     # 4. If it passes, your existing code runs safely below this line
     print("[SYSTEM]: Environment verified. Booting Panda AI Engine...")
     # Your engine initialization or menu loop goes here
-   
+    brain=PandaBrain()
     main_lobby()

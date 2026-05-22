@@ -5,8 +5,26 @@ import random
 import datetime
 from vitals_engine import VitalsEngine
 from personality import PandyVoice
+import os
 
+# Comment these out so they stop crashing your system tonight:
+# import google.generativeai as genai 
 
+class PandaBrain:
+    def __init__(self):
+        self.api_key = os.environ.get("GEMINI_API_KEY")
+        # genai.configure(api_key=self.api_key)
+        # self.model = genai.GenerativeModel('gemini-1.5-flash')
+
+    def ask(self, user_message: str) -> str:
+        # Temporary fallback so your program runs cleanly without internet
+        return f"Offline Mode: I received your message: '{user_message}'"
+
+    def handle_chat_session(self):
+        user_chat = input("\nYou: ")
+        print("Pandy is thinking (Offline Mode)...")
+        reply = self.ask(user_chat)
+        print(f"\nPandy: {reply}\n")
 # Your other imports (like json, time, etc.) go down here...
 
 class PandaCharacter:
@@ -55,7 +73,8 @@ class PandaCharacter:
         print(" 6: SLEEP--------------")
         print("7:MOOD-----------------")
         print("8:LOGS-----------------")
-        print("nlp:LET'S CHAT---------")
+        print("nlp:CHAT---------")
+        print("9:LET'S TALK ABOUT IT  ")
 
     def save_memory_made(self):
         if not os.path.exists("all_pandas"):
