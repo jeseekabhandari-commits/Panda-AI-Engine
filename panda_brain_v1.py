@@ -6,26 +6,49 @@ import datetime
 from vitals_engine import VitalsEngine
 from personality import PandyVoice
 import os
-
-# Comment these out so they stop crashing your system tonight:
-# import google.generativeai as genai 
+import os
+import google.generativeai as genai
 
 class PandaBrain:
     def __init__(self):
-        self.api_key = os.environ.get("GEMINI_API_KEY")
-        # genai.configure(api_key=self.api_key)
-        # self.model = genai.GenerativeModel('gemini-1.5-flash')
-
-    def ask(self, user_message: str) -> str:
-        # Temporary fallback so your program runs cleanly without internet
-        return f"Offline Mode: I received your message: '{user_message}'"
+        # 1. Securely grab the API key from your laptop's environment
+        api_key = os.environ.get("GEMINI_API_KEY")
+        
+        # 2. Initialize the Google AI configuration
+        if api_key:
+            genai.configure(api_key=api_key)
+            # Using the fast, standard flash model
+            self.model = genai.GenerativeModel('gemini-2.5-flash')
+            self.online_mode = True
+        else:
+            self.online_mode = False
+            print("⚠️ Warning: GEMINI_API_KEY not found. Running in Offline Mode.")
 
     def handle_chat_session(self):
-        user_chat = input("\nYou: ")
-        print("Pandy is thinking (Offline Mode)...")
-        reply = self.ask(user_chat)
-        print(f"\nPandy: {reply}\n")
-# Your other imports (like json, time, etc.) go down here...
+        print("\n💬 Entering Live Chat with Pandy! (Type 'exit' to return to menu)")
+        
+        while True:
+            user_msg = input("\nYou: ").strip()
+            
+            if user_msg.lower() == 'exit':
+                print("Returning to main lobby...")
+                break
+                
+            if not user_msg:
+                continue
+
+            print("Pandy is thinking...")
+
+            if self.online_mode:
+                try:
+                    # 3. Fire the live payload across the internet!
+                    response = self.model.generate_content(user_msg)
+                    print(f"\nPandy: {response.text}")
+                except Exception as e:
+                    print(f"\n⚠️ Connection Error: {e}")
+                    print(f"Fallback (Offline Mode): I received '{user_msg}'")
+            else:
+                print(f"\nPandy (Offline Mode): I received '{user_msg}'")
 
 class PandaCharacter:
   
