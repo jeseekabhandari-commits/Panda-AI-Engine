@@ -48,7 +48,7 @@ def main_game_loop(active_panda):
         '7': active_panda.mood_now,
         '8':active_panda.show_log,
         'nlp':active_panda.make,
-        '9':brain.handle_chat_session
+        '9':brain.handle_chat_session(active_panda)
     }
 
     while True:
@@ -67,7 +67,7 @@ def main_game_loop(active_panda):
            active_panda.make()
          }
         if user_choice in action_map:
-            action_map[user_choice]()
+            action_map[user_choice]
         else:
             result = process_pandy_logic(user_choice)
             

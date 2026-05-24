@@ -9,46 +9,7 @@ import os
 import os
 import google.generativeai as genai
 
-class PandaBrain:
-    def __init__(self):
-        # 1. Securely grab the API key from your laptop's environment
-        api_key = os.environ.get("GEMINI_API_KEY")
-        
-        # 2. Initialize the Google AI configuration
-        if api_key:
-            genai.configure(api_key=api_key)
-            # Using the fast, standard flash model
-            self.model = genai.GenerativeModel('gemini-2.5-flash')
-            self.online_mode = True
-        else:
-            self.online_mode = False
-            print("⚠️ Warning: GEMINI_API_KEY not found. Running in Offline Mode.")
-
-    def handle_chat_session(self):
-        print("\n💬 Entering Live Chat with Pandy! (Type 'exit' to return to menu)")
-        
-        while True:
-            user_msg = input("\nYou: ").strip()
-            
-            if user_msg.lower() == 'exit':
-                print("Returning to main lobby...")
-                break
-                
-            if not user_msg:
-                continue
-
-            print("Pandy is thinking...")
-
-            if self.online_mode:
-                try:
-                    # 3. Fire the live payload across the internet!
-                    response = self.model.generate_content(user_msg)
-                    print(f"\nPandy: {response.text}")
-                except Exception as e:
-                    print(f"\n⚠️ Connection Error: {e}")
-                    print(f"Fallback (Offline Mode): I received '{user_msg}'")
-            else:
-                print(f"\nPandy (Offline Mode): I received '{user_msg}'")
+   
 
 class PandaCharacter:
   
@@ -353,3 +314,63 @@ class PandaCharacter:
                pandy_msg=self.made.speak(current_mood)
                print(f"\n[Pandy]:{pandy_msg}")
           
+class PandaBrain:
+    def __init__(self):
+        # 1. Securely grab the API key from your laptop's environment
+        api_key = os.environ.get("GEMINI_API_KEY")
+        self.hey=PandaCharacter(name=__name__)
+        # 2. Initialize the Google AI configuration
+        if api_key:
+            genai.configure(api_key=api_key)
+            # Using the fast, standard flash model
+            self.model = genai.GenerativeModel('gemini-2.5-flash')
+            self.online_mode = True
+        else:
+            self.online_mode = False
+            print("⚠️ Warning: GEMINI_API_KEY not found. Running in Offline Mode.")
+    def handle_chat_session(self, panda_instance):
+        """
+        Accepts the real live panda object and dynamically pulls 
+        the active metrics for the AI injection layer.
+        """
+        print("\n💬 Entering Live Chat with Pandy! (Type 'exit' to return to menu)")
+        
+        # Pulling the REAL data directly from the live object attributes
+        real_energy = self.hey.energy
+        
+        # Using your existing method to calculate the true live mood string
+        real_mood = self.hey.new.get_mood() 
+
+        # Construct the context using reality, not fake inputs
+        system_context = (
+            f"You are Pandy, a digital virtual pet panda inside an AI engine.\n"
+            f"You must always reply in character as a cute, slightly witty panda.\n"
+            f"Your CURRENT LIVE status metrics are:\n"
+            f"- Mood: {real_mood}\n"
+            f"- Energy: {real_energy}%\n"
+            f"Adapt your tone based strictly on these live metrics."
+        )
+        
+        while True:
+            user_msg = input("\nYou: ").strip()
+            
+            if user_msg.lower() == 'exit':
+                print("Returning to main lobby...")
+                break
+                
+            if not user_msg:
+                continue
+
+            print("Pandy is thinking...")
+
+            if self.online_mode:
+                try:
+                    full_payload = f"{system_context}\n\nUser says: {user_msg}"
+                    response = self.model.generate_content(full_payload)
+                    print(f"\nPandy: {response.text}")
+                except Exception as e:
+                    print(f"\n⚠️ Connection Error: {e}")
+                    print(f"Fallback: I received '{user_msg}'")
+            else:
+                print(f"\nPandy (Offline Mode): I received '{user_msg}'")
+   
