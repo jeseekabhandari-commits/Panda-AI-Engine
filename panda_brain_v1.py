@@ -318,7 +318,7 @@ class PandaBrain:
     def __init__(self):
         # 1. Securely grab the API key from your laptop's environment
         api_key = os.environ.get("GEMINI_API_KEY")
-        self.hey=PandaCharacter(name=__name__)
+        self.engine=PandaCharacter(name=__name__)
         # 2. Initialize the Google AI configuration
         if api_key:
             genai.configure(api_key=api_key)
@@ -336,10 +336,10 @@ class PandaBrain:
         print("\n💬 Entering Live Chat with Pandy! (Type 'exit' to return to menu)")
         
         # Pulling the REAL data directly from the live object attributes
-        real_energy = self.hey.energy
+        real_energy = self.engine.energy
         
         # Using your existing method to calculate the true live mood string
-        real_mood = self.hey.new.get_mood() 
+        real_mood = self.engine.new.get_mood() 
 
         # Construct the context using reality, not fake inputs
         system_context = (
