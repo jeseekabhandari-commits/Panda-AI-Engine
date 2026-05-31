@@ -3,7 +3,7 @@ import psutil
 class VitalsEngine:
     def __init__(self):
         self.vitals = {"cpu": 0, "ram": 0, "batt": 0, "charge": True}
-        self.energy = 100 # Moved from Brain to Body/Vitals
+         # Moved from Brain to Body/Vitals
 
     def update_sensors(self):
         """Updates internal dictionary with latest hardware data."""

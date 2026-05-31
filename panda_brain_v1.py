@@ -6,7 +6,7 @@ import datetime
 from vitals_engine import VitalsEngine
 from personality import PandyVoice
 import os
-import os
+import sys
 import google.generativeai as genai
 
    
@@ -31,7 +31,7 @@ class PandaCharacter:
                 self.energy = data.get('energy', 100)
                 self.logs = data.get('logs', [])
                 self.last_check = data.get('last_check', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-                self.user_profile=data.get('user_profile',[])
+                self.user_profile=data.get('user_profile',{"name": "Unknown", "goal": "None"})
         except (json.JSONDecodeError, FileNotFoundError, ValueError):
             # 3. IF THE SHIELD TRIGGERS (File is missing, corrupted, or nonsense)
             print(f"\n[SYSTEM]: Memory corrupted or missing for {self.name}. Resetting brain...")
@@ -41,7 +41,7 @@ class PandaCharacter:
             self.logs = []
             self.last_check = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             self.write_log("CRITICAL: JSON corruption detected. Memory was wiped.")
-            self.save_memory_made()
+           
         # 4. Initialize the rest normally
        
            
@@ -161,11 +161,24 @@ class PandaCharacter:
         input("Press Enter...")
 
     def sleep(self): # Fixed: Added 'self'
-        self.energy = 100
-        print("\n[SLEEP] Fully Restored!")
-        self.write_log("SLEEP!!")
-        input("Press Enter...")
-
+        
+        # 1. Pull the actual live data from your neurons/vitals engine 
+          data_payload = {
+             "energy": self.energy,
+             "mood": self.new.get_mood()
+            }
+    
+    # 2. Hard-write that payload directly to your laptop's disk
+          try:
+             with open(self.save_path, "w") as file:
+                 json.dump(data_payload, file, indent=4)
+             print("💾 Reality Locked: Pandy's live state successfully saved to disk.")
+             self.write_log("DATA SAVED SLEEP MODE!!!!")
+          except Exception as e:
+             print(f"⚠️ Serialization Failed: Could not write file. Error: {e}")
+          
+          print("🔌 Disconnecting from brain. Hard process termination. Goodbye!")
+          os._exit(0)
 
     def apply_decay(self):
         now = datetime.datetime.now()

@@ -5,6 +5,7 @@ from personality import PandyVoice
 from dotenv import load_dotenv
 from panda_brain_v1 import PandaBrain
 
+
 # Your other imports (like json, time, etc.) go down here...
 
 def process_pandy_logic(user_input):
@@ -58,6 +59,7 @@ def main_game_loop(active_panda):
         active_panda.show_menu()
         print(f"Current Energy: {active_panda.energy}%")
         active_panda.hunger_check()
+        execution_result = None
         # 4. Check if we need to force a feed (The Hunger Wall)
 
         user_choice = input(f"\n[{active_panda.name}] Choice: ").lower().strip()
@@ -67,7 +69,7 @@ def main_game_loop(active_panda):
            active_panda.make()
          }
         if user_choice in action_map:
-            action_map[user_choice]
+          execution_result =  action_map[user_choice]()
         else:
             result = process_pandy_logic(user_choice)
             
@@ -80,15 +82,24 @@ def main_game_loop(active_panda):
                 elif "FEED" in result: action_code = '3'
                 elif "MANUAL" in result: action_code = '4'
                 elif "PLAY" in result: action_code = '5'
-                elif "SLEEP" in result: action_code = '6'
+                elif "SLEEP" in result:
+                    action_code = '6'
+
                 elif "MOOD" in result: action_code = '7'
                 elif "LOGS" in result :action_code = '8'
                 elif "NLP" in result :action_code = 'nlp'
                 elif "ASK" in result : action_code='9'
 
                 elif "CREATE" in result: return # Back to lobby
+                else:
+                   print("Panda: 'I don't understand that!'")
+           
+                if action_code in action_map:
+                    execution_result = action_map[action_code]()
+                if execution_result is True:
+                 print("🔌 Router loop broken. Hard execution halt.")
+                 break # This breaks your main while True loop cleanly!
                 
-                if action_code: action_map[action_code]()
             else:
                 print("Panda: 'I don't understand that!'")
             active_panda.check_hunger(active_panda)
