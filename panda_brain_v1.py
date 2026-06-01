@@ -31,6 +31,7 @@ class PandaCharacter:
                 self.energy = data.get('energy', 100)
                 self.logs = data.get('logs', [])
                 self.last_check = data.get('last_check', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                self.chat_history = data.get('chat_history', [])
                 self.user_profile=data.get('user_profile',{"name": "Unknown", "goal": "None"})
         except (json.JSONDecodeError, FileNotFoundError, ValueError):
             # 3. IF THE SHIELD TRIGGERS (File is missing, corrupted, or nonsense)
@@ -41,7 +42,7 @@ class PandaCharacter:
             self.logs = []
             self.last_check = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             self.write_log("CRITICAL: JSON corruption detected. Memory was wiped.")
-           
+            self.chat_history = []
         # 4. Initialize the rest normally
        
            
@@ -89,6 +90,41 @@ class PandaCharacter:
            except Exception as e:
              pass
    
+    def process_pandy_logic(user_input, chat_history=[]):
+    # 1. Build a text block out of your conversation history
+          history_context = ""
+          if chat_history:
+           history_context = "Recent Conversation History:\n"
+          for exchange in chat_history:
+              history_context += f"User said: '{exchange['user']}' -> Pandy responded: '{exchange['pandy']}'\n"
+          history_context += "\n"
+
+         # 2. Combine the history context with the system rules and the NEW input
+          system_instruction = (
+              "You are an AI routing system for a virtual panda pet named Pandy.\n"
+              "Analyze the user's intent based on the conversation history and the new input.\n"
+              "Output 'ACTION: PLAY' if they want to play a game, 'ACTION: SLEEP' for sleep, etc.\n\n"
+              )
+    
+             # Construct the final massive payload for Gemini
+          final_prompt = f"{system_instruction}{history_context}New User Input: {user_input}"
+    
+          # 3. Call your Gemini API using this final_prompt instead of just user_input
+          # response = model.generate_content(final_prompt)
+          # return response.text
+   
+   
+    def update_chat_history(self, user_message, ai_response):
+        """Keeps a rolling log of the last 5 interactions to maintain context."""
+    # Append the latest exchange as a structured dictionary
+        self.chat_history.append({
+             "user": user_message,
+              "pandy": ai_response
+             })
+    
+    # Sliding Window: If history exceeds 5 turns, drop the oldest memory
+        if len(self.chat_history) > 5:
+              self.chat_history.pop(0)
 
 
     def status(self):
@@ -165,7 +201,12 @@ class PandaCharacter:
         # 1. Pull the actual live data from your neurons/vitals engine 
           data_payload = {
              "energy": self.energy,
-             "mood": self.new.get_mood()
+             "mood": self.new.get_mood(),
+              "last_check": self.last_check,
+               "user_profile": self.user_profile,
+        
+        # 🔑 THE NEW LINE: Lock the chat history into your JSON file!
+              "chat_history": self.chat_history
             }
     
     # 2. Hard-write that payload directly to your laptop's disk
@@ -176,6 +217,7 @@ class PandaCharacter:
              self.write_log("DATA SAVED SLEEP MODE!!!!")
           except Exception as e:
              print(f"⚠️ Serialization Failed: Could not write file. Error: {e}")
+          
           
           print("🔌 Disconnecting from brain. Hard process termination. Goodbye!")
           os._exit(0)
@@ -366,6 +408,7 @@ class PandaBrain:
         
         while True:
             user_msg = input("\nYou: ").strip()
+            
             
             if user_msg.lower() == 'exit':
                 print("Returning to main lobby...")
