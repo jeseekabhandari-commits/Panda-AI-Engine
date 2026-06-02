@@ -1,9 +1,11 @@
 import os
 from textblob import TextBlob
-from panda_brain_v1 import PandaCharacter
+from panda_brain_v1 import PandaCharacter,PandaBrain
 from personality import PandyVoice
 from dotenv import load_dotenv
-from panda_brain_v1 import PandaBrain
+
+load_dotenv()
+brain = PandaBrain()
 
 
 # Your other imports (like json, time, etc.) go down here...
@@ -72,16 +74,16 @@ def process_pandy_logic(user_input,chat_history=[]):
 
 def main_game_loop(active_panda):
     action_map = {
-        '1': active_panda.status,
-        '2': active_panda.get_temp,
-        '3': active_panda.feedpanda,
-        '4': active_panda.manual_metabolism,
-        '5': active_panda.play_game,
-        '6': active_panda.sleep,
-        '7': active_panda.mood_now,
-        '8':active_panda.show_log,
-        'nlp':active_panda.make,
-        '9':brain.handle_chat_session(active_panda)
+        '1':lambda: active_panda.status,
+        '2':lambda: active_panda.get_temp,
+        '3': lambda:active_panda.feedpanda,
+        '4': lambda:active_panda.manual_metabolism,
+        '5': lambda:active_panda.play_game,
+        '6':lambda: active_panda.sleep,
+        '7': lambda:active_panda.mood_now,
+        '8':lambda:active_panda.show_log,
+        'nlp':lambda:active_panda.make,
+        '9':lambda:brain.handle_chat_session(active_panda)
     }
 
     while True:
@@ -194,21 +196,14 @@ def main_lobby():
     input("\nPress Enter to go back...")
 
 if __name__ == "__main__":
-    # 1. Load the environment variables instantly
-    load_dotenv()
-
-    # 2. Extract the key from memory
-    api_key = os.environ.get("GEMINI_API_KEY")
-
     # 3. Trigger the defensive gatekeeper check
+    api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         print("\n[CRITICAL ERROR]: System boot aborted.")
-        print("Reason: 'GEMINI_API_KEY' is missing from the environment configuration.")
-        print("Action Required: Check your local .env file.\n")
+        print("Reason: 'GEMINI_API_KEY' is missing from the environment configuration.\n")
         exit()
 
-    # 4. If it passes, your existing code runs safely below this line
+    
     print("[SYSTEM]: Environment verified. Booting Panda AI Engine...")
-    # Your engine initialization or menu loop goes here
     brain=PandaBrain()
-    main_lobby()
+    main_lobby()  # 👈 Just run your lobby directly here now!
