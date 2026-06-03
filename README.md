@@ -88,3 +88,27 @@ Successfully transitioned the `PandaBrain` subsystem from an offline fallback st
 * **Secure Environment Architecture:** Integrated OS-level environment variable fetching via `os.environ.get()` to prevent critical API credential leaks.
 **Live Network Handshake:** Established an active pipeline utilizing `google-generativeai` to transmit user conversational payloads over HTTPS.
  **Dynamic Exception Handling:** Engineered a robust `try/except` lifecycle fallback network layer to instantly revert to offline mode if server timeouts or 404 errors occur.
+
+  🐼 Pandy: AI Virtual Companion Dashboard
+
+Pandy is an interactive, full-stack virtual pet and AI companion ecosystem. Moving away from traditional terminal-bound CLI architectures, this project leverages a reactive web interface to synchronize live companion vitals (energy, mood metrics) directly with an advanced Large Language Model conversational layer.
+
+ 🛠️ Features & Architecture
+
+- **Live Session State Management:** Tracks real-time status metrics like Energy and dynamically calculates behavioral moods (`st.session_state`).
+- **Context-Anchored LLM Engine:** Integrates the Gemini API with strict system prompt validation constraints to guarantee the AI's dialogue persona matches active frontend metrics without hallucination.
+- **Persistent Local Storage:** Implements structural file I/O operations to save and reload conversation records and character states seamlessly.
+- **Isolated Network Framework:** Uses a dedicated local network loopback setup to ensure the development sandbox remains secure and fast.
+
+ 📂 Project Structure
+
+- `app.py`: Core application UI definitions, interface layouts, and reactive session controllers.
+- `panda_brain_v1.py`: Underlying AI operations manager handling prompt payloads and API execution.
+- `pandy_memory.json`: Structured local storage schema handling persistent data pipelines.
+- `vitals_engine.py`: Internal simulator managing state arithmetic and pet mechanics.
+
+⚡ Setup & Installation
+
+1. Install the required dependencies:
+   ```bash
+   pip install streamlit google-generativeai python-dotenv
