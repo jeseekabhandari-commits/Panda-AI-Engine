@@ -1,5 +1,5 @@
 {
-    "energy": 55,
+    "energy": 0,
     "chat_history": [
         {
             "role": "assistant",
@@ -20,6 +20,14 @@
         {
             "role": "assistant",
             "content": "Hiii there! \ud83d\udc3c Pandy is feeling quite *pandalicious* today, thank you for asking!\n\nJust perfectly chilled out, nestled in my cozy corner. Got about 55% energy for some gentle nose wiggles and maybe a slow munch on some bamboo. It's a nice, relaxed sort of day! \u2728"
+        },
+        {
+            "role": "user",
+            "content": "how are you feeling"
+        },
+        {
+            "role": "assistant",
+            "content": "Mmmph... *yawn-stretch, but not really stretching because too tired*... Pandy feels like a very squishy, very un-energetic bamboo shoot right now. My energy is 0%, so Pandy is just a big pile of Tired & Grumpy \ud83d\udca4. Don't even ask me to roll. Hmph."
         }
     ]
 }
