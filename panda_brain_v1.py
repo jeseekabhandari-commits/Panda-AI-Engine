@@ -23,6 +23,7 @@ class PandaCharacter:
         self.date_format="%Y-%m-%d %H:%M:%S"
         self.user_profile={"name": "Unknown","goal": "None","joined_date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         self.save_path = f"all_pandas/{self.name}.json"
+    
         
         # 2. Try to LOAD from the file
         try:
@@ -394,10 +395,9 @@ class PandaBrain:
             self.online_mode = False
 
     def talk_to_pandy_web(self, user_msg, live_energy, live_mood):
-        """
-        Web-Safe variant of your chat engine. Bypasses the terminal 'while True' 
+        """Web-Safe variant of your chat engine. Bypasses the terminal 'while True' 
         input loop and accepts metrics straight from Streamlit session states.
-        """
+    
         # Construct the context using reality, exactly matching your original rule
         system_context = (
          f"You are Pandy, a digital virtual pet panda inside an AI engine.\n"
@@ -420,7 +420,7 @@ class PandaBrain:
 
     # Restoring your original console loop unedited so your terminal launcher still works!
     def handle_chat_session(self, panda_instance):
-        """Original Terminal Input Session Handler."""
+       Original Terminal Input Session Handler."""
         print("\n💬 Entering Live Chat with Pandy! (Type 'exit' to return to menu)")
         
         # Pulling data from the assigned tracker instance
