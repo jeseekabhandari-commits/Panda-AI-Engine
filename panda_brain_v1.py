@@ -394,63 +394,54 @@ class PandaBrain:
         else:
             self.online_mode = False
 
-    def talk_to_pandy_web(self, user_msg, live_energy, live_mood):
-        """Web-Safe variant of your chat engine. Bypasses the terminal 'while True' 
-        input loop and accepts metrics straight from Streamlit session states.
-    
-        # Construct the context using reality, exactly matching your original rule
-        system_context = (
-         f"You are Pandy, a digital virtual pet panda inside an AI engine.\n"
-         f"You must always reply in character as a cute, slightly witty panda.\n"
-         f"Your CURRENT LIVE status metrics are EXACTLY:\n"
-          f"- Mood: {live_mood}\n"
-         f"- Energy: {live_energy}%\n"
-         f"CRITICAL: Do not mention any other numbers or make up your own statistics. "
-         f"If your energy is {live_energy}%, acknowledge that exact level and match your tone strictly to a '{live_mood}' state."
-         )
-        if self.online_mode:
-            try:
-                full_payload = f"{system_context}\n\nUser says: {user_msg}"
-                response = self.model.generate_content(full_payload)
-                return response.text
-            except Exception as e:
-                return f"⚠️ Connection Error: {e}\nFallback: I received '{user_msg}'"
-        else:
-            return f"🐼 (Offline Mode): I received '{user_msg}'"
+    def talk_to_pandy_web(self, user_msg, live_energy, live_mood,memo):
+     """
+      
+    Assembles a rolling multi-turn conversation log to provide your digital pet 
+    with functional persistent memory while maintaining threshold emotional tone shifts.
+    """
+    # 1. Day 29 Vitals Threshold Logic
+     if live_energy < 30:
+        energy_rule = "CRITICAL: You are starving and exhausted. Keep your response very short, lazy, and mention needing a nap or bamboo."
+     elif live_energy > 80:
+        energy_rule = "CRITICAL: You are hyperactive and full of life! Be extremely witty, enthusiastic, and crack a joke."
+     else:
+        energy_rule = "Be conversational, friendly, and matching your normal chilled-out state."
 
-    # Restoring your original console loop unedited so your terminal launcher still works!
-    def handle_chat_session(self, panda_instance):
-       Original Terminal Input Session Handler."""
-        print("\n💬 Entering Live Chat with Pandy! (Type 'exit' to return to menu)")
-        
-        # Pulling data from the assigned tracker instance
-        real_energy = self.engine.energy if self.engine else 100
-        real_mood = self.engine.new.get_mood() if self.engine else "Happy"
+    # 2. Base Character Grounding Rules
+     system_context = (
+        f"You are an AI character engine representing a digital virtual panda pet.\n"
+        f"Your CURRENT LIVE status metrics are EXACTLY:\n"
+        f"- Mood: {live_mood}\n"
+        f"- Energy: {live_energy}%\n"
+        f"Behavioral Guideline: {energy_rule}\n"
+        f"CRITICAL: Always stay completely in character. Do not mention being a language model."
+      )
 
-        system_context = (
-            f"You are Pandy, a digital virtual pet panda inside an AI engine.\n"
-            f"You must always reply in character as a cute, slightly witty panda.\n"
-            f"Your CURRENT LIVE status metrics are:\n"
-            f"- Mood: {real_mood}\n"
-            f"- Energy: {real_energy}%\n"
-            f"Adapt your tone based strictly on these live metrics."
-        )
-        
-        while True:
-            user_msg = input("\nYou: ").strip()
-            if user_msg.lower() == 'exit':
-                print("Returning to main lobby...")
-                break
-            if not user_msg:
-                continue
+     if self.online_mode:
+        try:
+            # 3. Memory Assembly: Slice history to grab only the last 10 messages for token efficiency
+            rolling_history = memo[-10:] if len(memo) > 10 else memo
+            
+            # 4. Build the chronological conversational transcript block
+            transcript = ""
+            for msg in rolling_history:
+                role_label = "User" if msg["role"] == "user" else "Model"
+                transcript += f"{role_label}: {msg['content']}\n"
+            
+            # Append the brand new message to the tail end of the transcript execution
+            transcript += f"User: {user_msg}\nModel:"
 
-            print("Pandy is thinking...")
-            if self.online_mode:
-                try:
-                    full_payload = f"{system_context}\n\nUser says: {user_msg}"
-                    response = self.model.generate_content(full_payload)
-                    print(f"\nPandy: {response.text}")
-                except Exception as e:
-                    print(f"\n⚠️ Connection Error: {e}")
-            else:
-                print(f"\nPandy (Offline Mode): I received '{user_msg}'")
+            # 5. Compile the final structural context package
+            full_payload = f"System Context:\n{system_context}\n\nChat History Log:\n{transcript}"
+            
+            # Fire the complete multi-turn stack to the API instance
+            response = self.model.generate_content(full_payload)
+            return response.text
+
+        except Exception as e:
+            if "429" in str(e) or "quota" in str(e).lower():
+                return "🤖 *Your panda companion is catching their breath! (API Rate Limit reached. Wait a few seconds before trying again).* 🐼💤"
+            return f"⚠️ Connection Error: {e}\nFallback: I received '{user_msg}'"
+     else:
+        return f"🐼 (Offline Mode): I received '{user_msg}'"

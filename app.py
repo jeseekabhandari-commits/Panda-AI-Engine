@@ -19,30 +19,23 @@ if "active_panda" not in st.session_state:
     st.title("🐼 Panda AI Management Console")
     st.write("---")
     
-    # YOUR TERMINAL LOGIC ARCHITECTURE: Ensure folder exists and scan it live
     if not os.path.exists("all_pandas"): 
         os.makedirs("all_pandas")
         
     files = os.listdir("all_pandas")
-    # Clean suffix extension mapper
     pandas = [f.removesuffix(".json").capitalize() for f in files if f.endswith(".json")]
     
-    # Dropdown menu containing existing files + creation action switch
     menu_options = pandas + ["✨ Create New Panda"]
     choice = st.selectbox("Select an option from the console:", menu_options)
     
-    # Branch A: Handle Creation Action Switch
     if choice == "✨ Create New Panda":
         new_name = st.text_input("Name your new virtual companion:")
-        
         if st.button("Generate & Boot Profile", use_container_width=True):
             if new_name.strip() != "":
                 st.session_state["active_panda"] = new_name.strip().lower()
                 st.rerun()
             else:
                 st.warning("Please type a valid character name string.")
-                
-    # Branch B: Handle Booting an Existing Checked Profile
     else:
         st.info(f"Ready to mount memory context for: {choice}")
         if st.button(f"Boot {choice} Instance", use_container_width=True):
@@ -53,45 +46,32 @@ if "active_panda" not in st.session_state:
 # STEP 2: THE REAL DASHBOARD ROAD (THE MAIN ELSE BLOCK)
 # =========================================================
 else:
-    # 1. Grab the active character string locked from Step 1
     current_panda = st.session_state["active_panda"]
     
-    # 2. Query your dynamic memory service passing the chosen profile target
+    # --- STATE HYDRATION GATEKEEPER ---
+    if "loaded_panda" in st.session_state and st.session_state["loaded_panda"] != current_panda:
+        if "energy" in st.session_state:
+            del st.session_state["energy"]
+        if "messages" in st.session_state:
+            del st.session_state["messages"]
+            
+    st.session_state["loaded_panda"] = current_panda
     saved_data = memory_manager.load_memory(current_panda)
     
-    # 3. Synchronize your runtime session registers directly with real file states
+    # Synchronize states cleanly using safe default schema boundaries
     if "energy" not in st.session_state:
-        st.session_state.energy = saved_data.get("energy",100)
+        st.session_state.energy = saved_data.get("energy", 100)
 
     if "messages" not in st.session_state:
-        st.session_state.messages = saved_data.get("chat_history",[])
+        st.session_state.messages = saved_data.get("chat_history", [])
         if not st.session_state.messages:
             st.session_state.messages = [{"role": "assistant", "content": f"Hello! I am {current_panda.capitalize()}."}]
 
-    # -----------------------------------------------------
-    # PASTE YOUR INDENTED DASHBOARD FURNITURE BELOW HERE!
-    # -----------------------------------------------------
+    # --- MAIN INTERFACE DISPLAY ---
     st.title(f"🐼 Managing Dashboard: {current_panda.capitalize()}")
-    
-
-    
-
     st.write(f"Active Profile File Context: all_pandas/{current_panda}.json")
-    
-    # (Put your sidebar code, chat render loop, and chat_input code right here)
 
-   # Smoothly load persistent data into active frontend session memory
-
- 
-    if "energy" not in st.session_state:
-       st.session_state.energy = saved_data["energy"]
-
-    if "messages" not in st.session_state:
-       st.session_state.messages = saved_data["chat_history"]
-    if not st.session_state.messages:
-        st.session_state.messages = [{"role": "assistant", "content": "Hello! I am Pandy. Let's talk!"}]
-
-# Dynamic Mood Engine
+    # Dynamic Mood Engine Logic
     def calculate_live_mood(energy):
         if energy > 80: return "Energetic & Happy 🎋"
         elif energy > 40: return "Chilled Out 🐼"
@@ -100,52 +80,50 @@ else:
     current_mood = calculate_live_mood(st.session_state.energy)
     is_full = st.session_state.energy >= 100
     is_exhausted = st.session_state.energy <= 0
-# --- SIDEBAR MONITORS ---
+
+    # --- SIDEBAR VITAL CONTROLS ---
     with st.sidebar:
-       st.header("📊 Vitals Engine")
-       st.metric(label="Energy Level", value=f"{st.session_state.energy}%")
-       st.metric(label="Calculated Mood", value=current_mood)
-    
-       st.write("---")
-       if st.button("🍲 Feed Bamboo (+15 Energy)", use_container_width=True,disabled=is_full):
-           st.session_state.energy = min(100, st.session_state.energy + 15)
-           memory_manager.save_memory(st.session_state.energy, st.session_state.messages)
-           st.rerun()
+        st.header("📊 Vitals Engine")
+        st.metric(label="Energy Level", value=f"{st.session_state.energy}%")
+        st.metric(label="Calculated Mood", value=current_mood)
         
-       if st.button("🏃 Exercise Routine (-20 Energy)", use_container_width=True,disabled=is_exhausted):
-          st.session_state.energy = max(0, st.session_state.energy - 20)
-          memory_manager.save_memory(st.session_state.energy, st.session_state.messages)
-          st.rerun()
-   
+        st.write("---")
+        if st.button("🍲 Feed Bamboo (+15 Energy)", use_container_width=True, disabled=is_full):
+            st.session_state.energy = min(100, st.session_state.energy + 15)
+            memory_manager.save_memory(st.session_state["active_panda"], st.session_state.energy, st.session_state.messages)
+            st.rerun()
+         
+        if st.button("🏃 Exercise Routine (-20 Energy)", use_container_width=True, disabled=is_exhausted):
+            st.session_state.energy = max(0, st.session_state.energy - 20)
+            memory_manager.save_memory(st.session_state["active_panda"], st.session_state.energy, st.session_state.messages)
+            st.rerun()
 
-    
-# --- MAIN INTERFACE ---
-       st.title("🐼 Pandy AI Character Console")
-       st.write("---")
-
-# Render active chat stream
+    # --- CHAT DISPLAY STREAM ---
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
-           st.write(msg["content"])
+            st.write(msg["content"])
 
-   # User Chat Input Pipeline
-    user_input = st.chat_input("Talk to Pandy...")
+    # --- BALANCED INPUT PIPELINE (SAFE INDENTATION OUTSIDE CRASH REGIONS) ---
+    user_input = st.chat_input(f"Talk to {current_panda.capitalize()}...")
+    
     if user_input:
-    # 1. Append and render user statement
+        # 1. Update session state locally and render instantly
         st.session_state.messages.append({"role": "user", "content": user_input})
-    with st.chat_message("user"):
-        st.write(user_input)
-        
-    # 2. Query anchored AI engine
-    with st.chat_message("assistant"):
-        with st.spinner("Pandy is processing response..."):
-            pandy_response = pandy_brain.talk_to_pandy_web(
-                user_msg=user_input, 
-                live_energy=st.session_state.energy, 
-                live_mood=current_mood
-            )
-            st.write(pandy_response)
+        with st.chat_message("user"):
+            st.write(user_input)
             
-    # 3. Save updated timeline smoothly via our decoupled service layer
-    st.session_state.messages.append({"role": "assistant", "content": pandy_response})
-    memory_manager.save_memory(st.session_state["active_panda"],st.session_state.energy, st.session_state.messages)
+        # 2. Trigger API processing wrapper ONLY when text exists
+        with st.chat_message("assistant"):
+            with st.spinner(f"{current_panda.capitalize()} is processing response..."):
+                pandy_response = pandy_brain.talk_to_pandy_web(
+                    user_msg=user_input, 
+                    live_energy=st.session_state.energy, 
+                    live_mood=current_mood,
+                    memo=st.session_state.messages
+                )
+                st.write(pandy_response)
+                
+        # 3. Save downstream timeline states to storage disk
+        st.session_state.messages.append({"role": "assistant", "content": pandy_response})
+        memory_manager.save_memory(st.session_state["active_panda"], st.session_state.energy, st.session_state.messages)
+        
