@@ -2,6 +2,8 @@ import streamlit as st
 import os  # Crucial for scanning your directory!
 from memory_service import MemoryService
 from panda_brain_v1 import PandaBrain 
+from journal_brain import JournalRouter
+router = JournalRouter(api_key="AIzaSyYourActualGeminiKeyWillGoHere")
 
 # Initialize global layout settings
 st.set_page_config(page_title="AI Engineering Hub", layout="wide")
@@ -151,30 +153,48 @@ if active_app == "🐼 Pandy Virtual Pet":
  # 📓 APP 2: AI JOURNALING ASSISTANT ROUTE
  # ==========================================
 else:
-    st.title("📓 Personal AI Journaling Assistant")
-    st.subheader("Day 31: Secure Entry Interface & Local Memory Hydration")
-    
-    # Initialize the Journal-Specific memory array if it doesn't exist
-    if "journal_entries" not in st.session_state:
-        st.session_state.journal_entries = []
-        
-    # Build a clean 2-column layout for the Journal App
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        st.markdown("### 📝 Write Today's Reflection")
-        # Text area for user entry input
-        journal_input = st.text_area(
-            "How was your day? Write down your raw thoughts, struggles, or wins:",
-            height=200,
-            placeholder="Type your entry here... (e.g., 'Today was stressful, I got stuck on a python bug for hours, but finally cleared it.')"
-        )
-        
-        submit_entry = st.button("Analyze & Log Entry", type="primary")
-        
-    with col2:
-        st.markdown("### 📊 Live Sentiment Analysis")
-        st.info("The NLP Sentiment Router will activate here on Day 32 to evaluate your emotional data streams.")
+   st.title("📓 Personal AI Journaling Assistant")
+   st.subheader("Day 33: Local Data Hydration & Schema Layout Verification")
 
-st.set_page_config(page_title="Panda Console", page_icon="🐼", layout="centered")
+   if "journal_entries" not in st.session_state:
+    st.session_state.journal_entries = []
 
+   col1, col2 = st.columns([2, 1])
+
+   with col1:
+      st.markdown("### 📝 Write Today's Reflection")
+      journal_input = st.text_area(
+        "How was your day? Write down your raw thoughts, struggles, or wins:",
+        height=200,
+        placeholder="Type your entry here...",
+        key="journal_text_box"
+      )
+      submit_entry = st.button("Analyze & Log Entry", type="primary")
+
+   with col2:
+     st.markdown("### 📊 Live Sentiment Analysis")
+    
+     if submit_entry and journal_input:
+        with st.spinner("Processing local text matrices..."):
+            import time
+            time.sleep(0.5) # Simulates network processing delay
+            
+            # 1. LOCAL SIMULATION ENGINE: Evaluates keywords offline to bypass API key checks entirely!
+            text_lower = journal_input.lower()
+            
+            if "tired" in text_lower or "stress" in text_lower or "exhausted" in text_lower:
+                data = {"sentiment_score": 4, "dominant_mood": "Exhausted", "summary_tag": "Exam Fatigue"}
+            elif "happy" in text_lower or "clear" in text_lower or "pass" in text_lower or "win" in text_lower:
+                data = {"sentiment_score": 9, "dominant_mood": "Accomplished", "summary_tag": "Major Win"}
+            else:
+                data = {"sentiment_score": 7, "dominant_mood": "Balanced", "summary_tag": "Steady Progress"}
+                
+            # Commit the simulation payload to session state
+            st.session_state.journal_entries.append({"text": journal_input, "analysis": data})
+            
+            # 2. RENDER THE METRICS FLUIDLY
+            st.success(f"Dominant Mood: {data['dominant_mood']}")
+            st.metric(label="Sentiment Score", value=f"{data['sentiment_score']}/10")
+            st.info(f"Summary: {data['summary_tag']}")
+     else:
+        st.info("Awaiting input transmission. Write an entry and submit to activate emotional data routing.")
