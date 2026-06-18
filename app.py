@@ -154,7 +154,7 @@ if active_app == "🐼 Pandy Virtual Pet":
  # ==========================================
 else:
    st.title("📓 Personal AI Journaling Assistant")
-   st.subheader("Day 33: Local Data Hydration & Schema Layout Verification")
+   st.subheader("Jornalism")
 
    if "journal_entries" not in st.session_state:
     st.session_state.journal_entries = []
@@ -175,26 +175,51 @@ else:
      st.markdown("### 📊 Live Sentiment Analysis")
     
      if submit_entry and journal_input:
-        with st.spinner("Processing local text matrices..."):
+        with st.spinner("Processing local text matrices & hydrating storage..."):
             import time
-            time.sleep(0.5) # Simulates network processing delay
+            import json
+            import os
+            from datetime import datetime
             
-            # 1. LOCAL SIMULATION ENGINE: Evaluates keywords offline to bypass API key checks entirely!
+            time.sleep(0.3)  # Processing delay
             text_lower = journal_input.lower()
             
+            # Deterministic simulation matching engine
             if "tired" in text_lower or "stress" in text_lower or "exhausted" in text_lower:
-                data = {"sentiment_score": 4, "dominant_mood": "Exhausted", "summary_tag": "Exam Fatigue"}
+                analysis_data = {"sentiment_score": 4, "dominant_mood": "Exhausted", "summary_tag": "Exam Fatigue"}
             elif "happy" in text_lower or "clear" in text_lower or "pass" in text_lower or "win" in text_lower:
-                data = {"sentiment_score": 9, "dominant_mood": "Accomplished", "summary_tag": "Major Win"}
+                analysis_data = {"sentiment_score": 9, "dominant_mood": "Accomplished", "summary_tag": "Major Win"}
             else:
-                data = {"sentiment_score": 7, "dominant_mood": "Balanced", "summary_tag": "Steady Progress"}
+                analysis_data = {"sentiment_score": 7, "dominant_mood": "Balanced", "summary_tag": "Steady Progress"}
                 
-            # Commit the simulation payload to session state
-            st.session_state.journal_entries.append({"text": journal_input, "analysis": data})
+            # Create a structured historical payload frame
+            entry_payload = {
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "raw_text": journal_input,
+                "metrics": analysis_data
+            }
             
-            # 2. RENDER THE METRICS FLUIDLY
-            st.success(f"Dominant Mood: {data['dominant_mood']}")
-            st.metric(label="Sentiment Score", value=f"{data['sentiment_score']}/10")
-            st.info(f"Summary: {data['summary_tag']}")
-     else:
-        st.info("Awaiting input transmission. Write an entry and submit to activate emotional data routing.")
+            # 1. FILE SYSTEM PERSISTENCE PIPELINE: Load existing records or init empty set
+            db_filename = "journal_db.json"
+            if os.path.exists(db_filename):
+                with open(db_filename, "r") as f:
+                    try:
+                        history_log = json.load(f)
+                    except:
+                        history_log = []
+            else:
+                history_log = []
+                
+            # Append the fresh record and write it back permanently to disk
+            history_log.append(entry_payload)
+            with open(db_filename, "w") as f:
+                json.dump(history_log, f, indent=4)
+                
+            # Sync back to volatile runtime state memory for UI rendering
+            st.session_state.journal_entries.append(entry_payload)
+            
+            # 2. RENDER THE METRICS
+            st.success(f"Dominant Mood: {analysis_data['dominant_mood']}")
+            st.metric(label="Sentiment Score", value=f"{analysis_data['sentiment_score']}/10")
+            st.info(f"Summary: {analysis_data['summary_tag']}")
+            st.toast("Entry locked permanently into disk file system!", icon="💾")
