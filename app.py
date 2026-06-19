@@ -153,35 +153,36 @@ if active_app == "🐼 Pandy Virtual Pet":
  # 📓 APP 2: AI JOURNALING ASSISTANT ROUTE
  # ==========================================
 else:
-   st.title("📓 Personal AI Journaling Assistant")
-   st.subheader("Jornalism")
+  st.title("📓 Personal AI Journaling Assistant")
+  st.subheader("Day 35: Historical Stream Hydration & Feed Layout")
 
-   if "journal_entries" not in st.session_state:
-    st.session_state.journal_entries = []
+  if "journal_entries" not in st.session_state:
+     st.session_state.journal_entries = []
 
-   col1, col2 = st.columns([2, 1])
+  # --- SECTION 1: INTERACTIVE INPUT & PERSISTENCE ---
+  col1, col2 = st.columns([2, 1])
 
-   with col1:
+  with col1:
       st.markdown("### 📝 Write Today's Reflection")
       journal_input = st.text_area(
         "How was your day? Write down your raw thoughts, struggles, or wins:",
         height=200,
         placeholder="Type your entry here...",
         key="journal_text_box"
-      )
-      submit_entry = st.button("Analyze & Log Entry", type="primary")
+     )
+  submit_entry = st.button("Analyze & Log Entry", type="primary")
 
-   with col2:
-     st.markdown("### 📊 Live Sentiment Analysis")
+  with col2:
+    st.markdown("### 📊 Live Sentiment Analysis")
     
-     if submit_entry and journal_input:
-        with st.spinner("Processing local text matrices & hydrating storage..."):
+    if submit_entry and journal_input:
+        with st.spinner("Processing local text matrices..."):
             import time
             import json
             import os
             from datetime import datetime
             
-            time.sleep(0.3)  # Processing delay
+            time.sleep(0.3)
             text_lower = journal_input.lower()
             
             # Deterministic simulation matching engine
@@ -192,34 +193,65 @@ else:
             else:
                 analysis_data = {"sentiment_score": 7, "dominant_mood": "Balanced", "summary_tag": "Steady Progress"}
                 
-            # Create a structured historical payload frame
             entry_payload = {
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "raw_text": journal_input,
                 "metrics": analysis_data
             }
             
-            # 1. FILE SYSTEM PERSISTENCE PIPELINE: Load existing records or init empty set
+            # File system serialization append
             db_filename = "journal_db.json"
             if os.path.exists(db_filename):
                 with open(db_filename, "r") as f:
-                    try:
-                        history_log = json.load(f)
-                    except:
-                        history_log = []
+                    try: history_log = json.load(f)
+                    except: history_log = []
             else:
                 history_log = []
                 
-            # Append the fresh record and write it back permanently to disk
             history_log.append(entry_payload)
             with open(db_filename, "w") as f:
                 json.dump(history_log, f, indent=4)
                 
-            # Sync back to volatile runtime state memory for UI rendering
-            st.session_state.journal_entries.append(entry_payload)
-            
-            # 2. RENDER THE METRICS
+            st.toast("Entry saved locally!", icon="💾")
+
+            # Render active metrics cards
             st.success(f"Dominant Mood: {analysis_data['dominant_mood']}")
             st.metric(label="Sentiment Score", value=f"{analysis_data['sentiment_score']}/10")
             st.info(f"Summary: {analysis_data['summary_tag']}")
-            st.toast("Entry locked permanently into disk file system!", icon="💾")
+    else:
+        st.info("Awaiting input transmission.")
+
+# --- SECTION 2: DAY 35 HISTORICAL TIMELINE FEED ---
+  st.markdown("---")
+  st.markdown("### 📜 Past Reflections Timeline")
+
+  import json
+  import os
+
+  db_filename = "journal_db.json"
+  if os.path.exists(db_filename):
+     with open(db_filename, "r") as f:
+        try:
+            saved_logs = json.load(f)
+            # Reverse logs to show newest entries first at the top
+            saved_logs = list(reversed(saved_logs))
+        except:
+            saved_logs = []
+            
+     if saved_logs:
+        # Loop over historical entries and render clean UI expander cards
+        for index, log in enumerate(saved_logs):
+            ts = log.get("timestamp", "Unknown Time")
+            mood = log.get("metrics", {}).get("dominant_mood", "Balanced")
+            score = log.get("metrics", {}).get("sentiment_score", 7)
+            tag = log.get("metrics", {}).get("summary_tag", "Progress")
+            text = log.get("raw_text", "")
+            
+            # Draw an interactive expander card for each past entry
+            with st.expander(f"📅 {ts} | Mood: {mood} ({score}/10)"):
+                st.markdown(f"**Short Tag:** `{tag}`")
+                st.info(text)
+     else:
+        st.warning("No historical logs found. Submit your first entry above to populate your database file!")
+  else:
+    st.warning("Database file not initialized yet. Write an entry to create your local history stream!")
