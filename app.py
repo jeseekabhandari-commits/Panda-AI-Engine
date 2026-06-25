@@ -35,6 +35,7 @@ except ImportError:
 # =====================================================================
 def load_database_records(filepath: str) -> list:
     """Reads, parses, and returns historical records from local JSON storage.
+    Enforces robust error gates to handle missing or corrupted files defensively.
 
     Args:
         filepath (str): Target disk path to the system log storage file.
@@ -42,16 +43,25 @@ def load_database_records(filepath: str) -> list:
     Returns:
         list: Array of deserialized transactional logging dictionaries.
     """
+    if not filepath or not isinstance(filepath, str):
+        st.error("Engine Fault: Invalid or uninitialized database filepath string.")
+        return []
+
     if os.path.exists(filepath):
-        with open(filepath, "r") as file_stream:
-            try:
+        try:
+            with open(filepath, "r", encoding="utf-8") as file_stream:
                 return json.load(file_stream)
-            except json.JSONDecodeError:
-                return []
+        except json.JSONDecodeError:
+            st.error("⚠️ Storage Corrupted: `journal_db.json` contains malformed syntax. Resetting runtime view.")
+            return []
+        except PermissionError:
+            st.error("⚠️ System Error: Insufficient disk read permissions for storage file.")
+            return []
     return []
 
 def save_database_record(filepath: str, payload: dict) -> bool:
     """Serializes and appends a fresh operational tracking frame to disk storage.
+    Provides proactive mitigation against I/O exceptions and formatting errors.
 
     Args:
         filepath (str): Target disk path to the system log storage file.
@@ -60,15 +70,21 @@ def save_database_record(filepath: str, payload: dict) -> bool:
     Returns:
         bool: True if transaction committed successfully, False otherwise.
     """
-    history_log = load_database_records(filepath)
-    history_log.append(payload)
-    try:
-        with open(filepath, "w") as file_stream:
-            json.dump(history_log, file_stream, indent=4)
-        return True
-    except IOError:
+    if not payload or not isinstance(payload, dict):
+        st.warning("Validation Skipped: Attempted to log an empty or invalid data payload structure.")
         return False
 
+    try:
+        history_log = load_database_records(filepath)
+        history_log.append(payload)
+        
+        with open(filepath, "w", encoding="utf-8") as file_stream:
+            json.dump(history_log, file_stream, indent=4)
+        return True
+    except (IOError, OSError) as write_error:
+        st.error(f"⚠️ Critical Storage Write Failure: {write_error}")
+        return False
+    
 def execute_offline_sentiment_pipeline(text: str) -> dict:
     """Applies a deterministic rule matrix to parse text strings for tone properties.
 
@@ -221,7 +237,7 @@ if active_app == "🐼 Pandy Virtual Pet":
 # ==========================================
 else:
     st.title("📓 Personal AI Journaling Assistant")
-    st.subheader("Day 38: Code Quality Audit & Global Refactoring")
+    st.subheader("Day 39: Exception Hardening & Validation Testing")
 
     if "journal_entries" not in st.session_state:
         st.session_state.journal_entries = []
