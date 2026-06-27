@@ -237,7 +237,7 @@ if active_app == "🐼 Pandy Virtual Pet":
 # ==========================================
 else:
     st.title("📓 Personal AI Journaling Assistant")
-    st.subheader("Day 39: Exception Hardening & Validation Testing")
+    st.subheader("Day 40: End-to-End Latency Benchmarking & Phase 1 Graduation")
 
     if "journal_entries" not in st.session_state:
         st.session_state.journal_entries = []
@@ -259,8 +259,11 @@ else:
         st.markdown("### 📊 Live Sentiment Analysis")
         
         if submit_entry and journal_input:
+            # ⏱️ START TELEMETRY CLOCK
+            execution_start_timestamp = time.perf_counter()
+            
             with st.spinner("Processing local text matrices..."):
-                time.sleep(0.1)  # Optimized latency interval
+                time.sleep(0.05)  # Mimicking optimized hardware pipeline latency
                 
                 # Execute decoupled processing modules
                 analysis_data = execute_offline_sentiment_pipeline(journal_input)
@@ -275,7 +278,7 @@ else:
                 save_database_record(DB_FILENAME, entry_payload)
                 st.toast("Data matrix logged!", icon="💾")
                 
-                # Render Design Variants
+                # Render Design Variations
                 score = analysis_data["sentiment_score"]
                 if score >= 8:
                     st.success(f"Dominant Mood: {analysis_data['dominant_mood']}")
@@ -290,9 +293,19 @@ else:
                     
                 st.markdown(f"**Brief Index Summary:**")
                 st.code(analysis_data['summary_tag'], language="text")
-        else:
-            st.info("Awaiting input transmission.")
 
+            # ⏱️ STOP TELEMETRY CLOCK
+            execution_end_timestamp = time.perf_counter()
+            total_latency_ms = (execution_end_timestamp - execution_start_timestamp) * 1000
+            
+            # Render clear performance metrics below the analytics window
+            st.metric(
+                label="⚡ System Processing Latency", 
+                value=f"{total_latency_ms:.2f} ms", 
+                delta="Target: < 200.00 ms",
+                delta_color="normal" if total_latency_ms < 200 else "inverse"
+            )
+        
     # --- TIMELINE & ANALYTICS SECTION ---
     st.markdown("---")
     st.markdown("### 📜 Past Reflections Timeline")
