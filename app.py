@@ -85,8 +85,10 @@ def save_database_record(filepath: str, payload: dict) -> bool:
         st.error(f"⚠️ Critical Storage Write Failure: {write_error}")
         return False
     
+
 def execute_offline_sentiment_pipeline(text: str) -> dict:
-    """Applies a deterministic rule matrix to parse text strings for tone properties.
+    """Applies a weighted frequency matrix and input length coefficient to 
+    dynamically compute granular sentiment indices without hitting web APIs.
 
     Args:
         text (str): Raw string expression submitted from the frontend layer.
@@ -95,11 +97,37 @@ def execute_offline_sentiment_pipeline(text: str) -> dict:
         dict: Target schema tracking indicators (score, mood, tag summary).
     """
     text_lower = text.lower()
-    if any(keyword in text_lower for keyword in ["tired", "stress", "exhausted"]):
-        return {"sentiment_score": 4, "dominant_mood": "Exhausted", "summary_tag": "Exam Fatigue"}
-    elif any(keyword in text_lower for keyword in ["happy", "clear", "pass", "win"]):
-        return {"sentiment_score": 9, "dominant_mood": "Accomplished", "summary_tag": "Major Win"}
-    return {"sentiment_score": 7, "dominant_mood": "Balanced", "summary_tag": "Steady Progress"}
+    word_count = len(text_lower.split())
+    
+    # Define dynamic analytical buckets
+    fatigue_keywords = ["tired", "stress", "exhausted", "hard", "sad", "fail", "bad"]
+    growth_keywords = ["happy", "clear", "pass", "win", "adventure", "fun", "good", "learned"]
+    
+    # Calculate keyword density matches
+    fatigue_score = sum(text_lower.count(key) for key in fatigue_keywords)
+    growth_score = sum(text_lower.count(key) for key in growth_keywords)
+    
+    # Base calculation baseline
+    base_score = 7
+    net_coefficient = growth_score - fatigue_score
+    calculated_score = base_score + net_coefficient
+    
+    # Apply entry length bias (longer reflections reflect deeper processing)
+    if word_count > 15 and calculated_score >= 7:
+        calculated_score = min(calculated_score + 1, 10)
+    elif word_count > 15 and calculated_score < 7:
+        calculated_score = max(calculated_score - 1, 1)
+        
+    # Boundary clamp validation
+    calculated_score = max(1, min(calculated_score, 10))
+    
+    # Schema routing assignment
+    if calculated_score >= 8:
+        return {"sentiment_score": calculated_score, "dominant_mood": "Accomplished", "summary_tag": "Dynamic Win"}
+    elif calculated_score >= 5:
+        return {"sentiment_score": calculated_score, "dominant_mood": "Balanced", "summary_tag": "Steady Momentum"}
+    else:
+        return {"sentiment_score": calculated_score, "dominant_mood": "Exhausted", "summary_tag": "Fatigue Warning"}
 
 # ==========================================
 # 🗺️ GLOBAL MULTI-APP NAVIGATION ROUTER
@@ -237,8 +265,7 @@ if active_app == "🐼 Pandy Virtual Pet":
 # ==========================================
 else:
     st.title("📓 Personal AI Journaling Assistant")
-    st.subheader("Day 40: End-to-End Latency Benchmarking & Phase 1 Graduation")
-
+    st.subheader("Day 41: Adaptive Sentiment Matrices & Target Telemetry Mutation")
     if "journal_entries" not in st.session_state:
         st.session_state.journal_entries = []
 
@@ -331,15 +358,37 @@ else:
             st.info(f"{trend_emoji} {trend_text}")
             
         st.markdown("#### Chronological Entries Feed")
-        for log in reversed(saved_logs):
-            ts = log.get("timestamp", "Unknown Time")
-            mood = log.get("metrics", {}).get("dominant_mood", "Balanced")
-            score = log.get("metrics", {}).get("sentiment_score", 7)
-            tag = log.get("metrics", {}).get("summary_tag", "Progress")
-            text = log.get("raw_text", "")
+            # Convert to a list to maintain rigid index alignment during file mutations
+        logs_list = list(saved_logs)
+        total_logs = len(logs_list)
             
-            with st.expander(f"📅 {ts} | Mood: {mood} ({score}/10)"):
-                st.markdown(f"**Short Tag:** `{tag}`")
-                st.info(text)
+        for index, log in enumerate(reversed(logs_list)):
+                # Map the reverse loop index back to the true absolute disk array index
+                true_disk_index = total_logs - 1 - index
+                
+                ts = log.get("timestamp", "Unknown Time")
+                mood = log.get("metrics", {}).get("dominant_mood", "Balanced")
+                score = log.get("metrics", {}).get("sentiment_score", 7)
+                tag = log.get("metrics", {}).get("summary_tag", "Progress")
+                text = log.get("raw_text", "")
+                
+                with st.expander(f"📅 {ts} | Mood: {mood} ({score}/10)"):
+                    st.markdown(f"**Short Tag:** `{tag}`")
+                    st.info(text)
+                    
+                    # 🛠️ THE MUTATION GATE: Targeted Record Erasure
+                    if st.button(f"🗑️ Erase Entry Record", key=f"del_{true_disk_index}_{ts[:19].replace(' ', '_')}"):
+                        # Pop the targeted structure out of memory frame
+                        logs_list.pop(true_disk_index)
+                        
+                        # Serialize modified log list directly back to persistent storage
+                        try:
+                            with open(DB_FILENAME, "w", encoding="utf-8") as file_stream:
+                                json.dump(logs_list, file_stream, indent=4)
+                            st.toast("Record mutated successfully!", icon="💥")
+                            time.sleep(0.2)
+                            st.rerun()
+                        except IOError as mutation_fault:
+                            st.error(f"Mutation Failure: {mutation_fault}")
     else:
         st.warning("Database file empty or uninitialized.")
