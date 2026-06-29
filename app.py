@@ -132,12 +132,29 @@ def execute_offline_sentiment_pipeline(text: str) -> dict:
 # ==========================================
 # 🗺️ GLOBAL MULTI-APP NAVIGATION ROUTER
 # ==========================================
+
+st.sidebar.markdown("---")
+# --- STATE SYNCHRONIZATION RUNTIME INITIALIZATION ---
+if "current_active_view" not in st.session_state:
+    st.session_state["current_active_view"] = "📓 Personal AI Journal"
+
+# Sidebar Selection Gate
 st.sidebar.title("🚀 Project Dashboard")
 active_app = st.sidebar.radio(
     "Select Application:",
-    ["🐼 Pandy Virtual Pet", "📓 Personal AI Journal"]
+    ["🐼 Pandy Virtual Pet", "📓 Personal AI Journal"],
+    index=1 if st.session_state["current_active_view"] == "📓 Personal AI Journal" else 0
 )
-st.sidebar.markdown("---")
+
+# 🔄 THE SYNC BARRIER: Detect cross-application transitions and flush stale layouts
+if active_app != st.session_state["current_active_view"]:
+    st.session_state["current_active_view"] = active_app
+    # Evict temporary operational flags from memory to prevent bleed-through
+    keys_to_clear = [k for k in st.session_state.keys() if k.startswith("del_") or k in ["journal_input"]]
+    for key in keys_to_clear:
+        st.session_state.pop(key, None)
+    st.toast("Application context synchronized cleanly!", icon="🔄")
+    st.rerun()
 
 # ==========================================
 # 🐼 APP 1: PANDY VIRTUAL PET ROUTE
@@ -265,7 +282,7 @@ if active_app == "🐼 Pandy Virtual Pet":
 # ==========================================
 else:
     st.title("📓 Personal AI Journaling Assistant")
-    st.subheader("Day 41: Adaptive Sentiment Matrices & Target Telemetry Mutation")
+    st.subheader("Day 42: Cross-Application State Synchronization Barriers")
     if "journal_entries" not in st.session_state:
         st.session_state.journal_entries = []
 
