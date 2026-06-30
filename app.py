@@ -282,7 +282,7 @@ if active_app == "🐼 Pandy Virtual Pet":
 # ==========================================
 else:
     st.title("📓 Personal AI Journaling Assistant")
-    st.subheader("Day 42: Cross-Application State Synchronization Barriers")
+    st.subheader("Day 43: Time-Series Delta Clustering & Analytical Aggregations")
     if "journal_entries" not in st.session_state:
         st.session_state.journal_entries = []
 
@@ -349,63 +349,116 @@ else:
                 delta="Target: < 200.00 ms",
                 delta_color="normal" if total_latency_ms < 200 else "inverse"
             )
-        
-    # --- TIMELINE & ANALYTICS SECTION ---
+        else:
+            st.info("Awaiting input transmision")
     st.markdown("---")
-    st.markdown("### 📜 Past Reflections Timeline")
-    
+    st.markdown("### 📊 Historical Analytics & Velocity Tracking")
+
     saved_logs = load_database_records(DB_FILENAME)
     
-    if saved_logs:
-        total_entries = len(saved_logs)
-        scores = [log.get("metrics", {}).get("sentiment_score", 7) for log in saved_logs]
-        avg_score = sum(scores) / total_entries if total_entries > 0 else 0.0
+    if not saved_logs:
+        st.warning("Database file empty or uninitialized.")
+    else:
+        # --- COMPUTE TIME-SERIES CLUSTERING ---
+        current_date_str = datetime.now().strftime("%Y-%m-%d")
         
-        if avg_score >= 8.0: trend_emoji, trend_text = "🚀", "Thriving"
-        elif avg_score >= 6.0: trend_emoji, trend_text = "⚖️", "Stable / Balanced"
-        else: trend_emoji, trend_text = "📉", "Fatigued / Low Energy"
-
-        stat_col1, stat_col2, stat_col3 = st.columns(3)
-        with stat_col1:
-            st.metric(label="Total Reflections Logged", value=f"{total_entries} Days")
-        with stat_col2:
-            st.metric(label="Lifetime Sentiment Avg", value=f"{avg_score:.1f} / 10")
-        with stat_col3:
-            st.markdown(f"**Current Status Trend:**")
-            st.info(f"{trend_emoji} {trend_text}")
+        today_scores = []
+        past_scores = []
+        
+        for log in saved_logs:
+            log_ts = log.get("timestamp", "")
+            log_score = log.get("metrics", {}).get("sentiment_score", 7)
             
+            # Cluster logs based on calendar day matching
+            if log_ts.startswith(current_date_str):
+                today_scores.append(log_score)
+            else:
+                past_scores.append(log_score)
+        
+        # --- CALCULATE AGGREGATE COUPLING COEFFICIENTS ---
+        total_logs = len(saved_logs)
+        global_avg = sum(log.get("metrics", {}).get("sentiment_score", 7) for log in saved_logs) / total_logs
+        
+        today_avg = sum(today_scores) / len(today_scores) if today_scores else None
+        past_avg = sum(past_scores) / len(past_scores) if past_scores else global_avg
+        
+        # Compute Velocity Delta (Today's performance vs. Baseline Past History)
+        if today_avg is not None:
+            velocity_delta = today_avg - past_avg
+            delta_string = f"{velocity_delta:+.2f} vs. Baseline"
+        else:
+            velocity_delta = 0.0
+            delta_string = "No entries today yet"
+
+        # --- RENDER HARDENED METRIC TILES ---
+        stat_col1, stat_col2, stat_col3 = st.columns(3)
+        
+        with stat_col1:
+            st.metric(
+                label="Total Reflections Logged", 
+                value=f"{total_logs} Days"
+            )
+        with stat_col2:
+            st.metric(
+                label="Lifetime Sentiment Avg", 
+                value=f"{global_avg:.1f} / 10",
+                delta="System Baseline",
+                delta_color="off"
+            )
+        with stat_col3:
+            st.metric(
+                label="Sentiment Velocity Delta", 
+                value=f"{today_avg:.1f} / 10" if today_avg is not None else "N/A", 
+                delta=delta_string,
+                delta_color="normal" if velocity_delta >= 0 else "inverse"
+            )
+            
+        # Dynamic Status Trend Card
+        st.markdown("#### Current Directional Vector")
+        if velocity_delta > 0.5:
+            st.success("🚀 Positive Acceleration: Your localized daily mindset is outperforming your historical baseline.")
+        elif velocity_delta < -0.5:
+            st.error("⚠️ Fatigue Dip Detected: Current logs point to an active energy drain compared to your baseline trend.")
+        else:
+            st.info("⚖️ Stable Equilibrium: Current velocity matches your steady historical momentum.")    
+            
+        # Dynamic Status Trend Card
+        st.markdown("#### Current Directional Vector")
+        if velocity_delta > 0.5:
+            st.success("🚀 Positive Acceleration: Your localized daily mindset is outperforming your historical baseline.")
+        elif velocity_delta < -0.5:
+            st.error("⚠️ Fatigue Dip Detected: Current logs point to an active energy drain compared to your baseline trend.")
+        else:
+            st.info("⚖️ Stable Equilibrium: Current velocity matches your steady historical momentum.")
+
+        # --- CHRONOLOGICAL FEED ---
         st.markdown("#### Chronological Entries Feed")
-            # Convert to a list to maintain rigid index alignment during file mutations
         logs_list = list(saved_logs)
         total_logs = len(logs_list)
             
         for index, log in enumerate(reversed(logs_list)):
-                # Map the reverse loop index back to the true absolute disk array index
-                true_disk_index = total_logs - 1 - index
+            # Map the reverse loop index back to the true absolute disk array index
+            true_disk_index = total_logs - 1 - index
+            
+            ts = log.get("timestamp", "Unknown Time")
+            mood = log.get("metrics", {}).get("dominant_mood", "Balanced")
+            score = log.get("metrics", {}).get("sentiment_score", 7)
+            tag = log.get("metrics", {}).get("summary_tag", "Progress")
+            text = log.get("raw_text", "")
+            
+            with st.expander(f"📅 {ts} | Mood: {mood} ({score}/10)"):
+                st.markdown(f"**Short Tag:** `{tag}`")
+                st.info(text)
                 
-                ts = log.get("timestamp", "Unknown Time")
-                mood = log.get("metrics", {}).get("dominant_mood", "Balanced")
-                score = log.get("metrics", {}).get("sentiment_score", 7)
-                tag = log.get("metrics", {}).get("summary_tag", "Progress")
-                text = log.get("raw_text", "")
-                
-                with st.expander(f"📅 {ts} | Mood: {mood} ({score}/10)"):
-                    st.markdown(f"**Short Tag:** `{tag}`")
-                    st.info(text)
+                # 🛠️ THE MUTATION GATE: Targeted Record Erasure
+                if st.button(f"🗑️ Erase Entry Record", key=f"del_{true_disk_index}_{ts[:19].replace(' ', '_')}"):
+                    logs_list.pop(true_disk_index)
                     
-                    # 🛠️ THE MUTATION GATE: Targeted Record Erasure
-                    if st.button(f"🗑️ Erase Entry Record", key=f"del_{true_disk_index}_{ts[:19].replace(' ', '_')}"):
-                        # Pop the targeted structure out of memory frame
-                        logs_list.pop(true_disk_index)
-                        
-                        # Serialize modified log list directly back to persistent storage
-                        try:
-                            with open(DB_FILENAME, "w", encoding="utf-8") as file_stream:
-                                json.dump(logs_list, file_stream, indent=4)
-                            st.toast("Record mutated successfully!", icon="💥")
-                            time.sleep(0.2)
-                            st.rerun()
-                        except IOError as mutation_fault:
-                            st.error(f"Mutation Failure: {mutation_fault}")
-    else:
-        st.warning("Database file empty or uninitialized.")
+                    try:
+                        with open(DB_FILENAME, "w", encoding="utf-8") as file_stream:
+                            json.dump(logs_list, file_stream, indent=4)
+                        st.toast("Record mutated successfully!", icon="💥")
+                        time.sleep(0.2)
+                        st.rerun()
+                    except IOError as mutation_fault:
+                        st.error(f"Mutation Failure: {mutation_fault}")    
