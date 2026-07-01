@@ -61,7 +61,7 @@ def load_database_records(filepath: str) -> list:
 
 def save_database_record(filepath: str, payload: dict) -> bool:
     """Serializes and appends a fresh operational tracking frame to disk storage.
-    Provides proactive mitigation against I/O exceptions and formatting errors.
+    Enforces atomic thread safety using a transient shadow dump staging routine.
 
     Args:
         filepath (str): Target disk path to the system log storage file.
@@ -74,14 +74,24 @@ def save_database_record(filepath: str, payload: dict) -> bool:
         st.warning("Validation Skipped: Attempted to log an empty or invalid data payload structure.")
         return False
 
+    temp_filepath = f"{filepath}.tmp"
     try:
+        # Load stable memory frames
         history_log = load_database_records(filepath)
         history_log.append(payload)
         
-        with open(filepath, "w", encoding="utf-8") as file_stream:
-            json.dump(history_log, file_stream, indent=4)
-        return True
+        # Phase 1: Write atomic data into the shadow clone
+        with open(temp_filepath, "w", encoding="utf-8") as temp_stream:
+            json.dump(history_log, temp_stream, indent=4)
+        
+        # Phase 2: Perform atomic replacement (POSIX system swap)
+        if os.path.exists(temp_filepath):
+            os.replace(temp_filepath, filepath)
+            return True
+        return False
     except (IOError, OSError) as write_error:
+        if os.path.exists(temp_filepath):
+            os.remove(temp_filepath)  # Clean up orphaned temp files
         st.error(f"⚠️ Critical Storage Write Failure: {write_error}")
         return False
     
@@ -282,7 +292,7 @@ if active_app == "🐼 Pandy Virtual Pet":
 # ==========================================
 else:
     st.title("📓 Personal AI Journaling Assistant")
-    st.subheader("Day 43: Time-Series Delta Clustering & Analytical Aggregations")
+    st.subheader("Day 44: Atomic Shadow Writes & Transaction Write Protection")
     if "journal_entries" not in st.session_state:
         st.session_state.journal_entries = []
 
@@ -451,14 +461,23 @@ else:
                 st.info(text)
                 
                 # 🛠️ THE MUTATION GATE: Targeted Record Erasure
+                # 🛠️ THE MUTATION GATE: Hardened Target Record Erasure
                 if st.button(f"🗑️ Erase Entry Record", key=f"del_{true_disk_index}_{ts[:19].replace(' ', '_')}"):
                     logs_list.pop(true_disk_index)
                     
+                    temp_db_path = f"{DB_FILENAME}.tmp"
                     try:
-                        with open(DB_FILENAME, "w", encoding="utf-8") as file_stream:
-                            json.dump(logs_list, file_stream, indent=4)
+                        # Stream state modifications safely to hidden staging layer first
+                        with open(temp_db_path, "w", encoding="utf-8") as temp_stream:
+                            json.dump(logs_list, temp_stream, indent=4)
+                        
+                        # Swap verified file matrix to production path
+                        os.replace(temp_db_path, DB_FILENAME)
+                        
                         st.toast("Record mutated successfully!", icon="💥")
                         time.sleep(0.2)
                         st.rerun()
                     except IOError as mutation_fault:
-                        st.error(f"Mutation Failure: {mutation_fault}")    
+                        if os.path.exists(temp_db_path):
+                            os.remove(temp_db_path)
+                        st.error(f"Mutation Failure: {mutation_fault}")
