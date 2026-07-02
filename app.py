@@ -7,6 +7,7 @@ Compliance: PEP 8 Structural Standards & Phase 1 Performance Contracts
 import os
 import json
 import time
+import pandas as pd
 from datetime import datetime
 import streamlit as st
 from memory_service import MemoryService  # Adjust file name if different
@@ -292,7 +293,7 @@ if active_app == "🐼 Pandy Virtual Pet":
 # ==========================================
 else:
     st.title("📓 Personal AI Journaling Assistant")
-    st.subheader("Day 44: Atomic Shadow Writes & Transaction Write Protection")
+    st.subheader("Day 45: Relational Data Mapping & Visual Telemetry Matrices")
     if "journal_entries" not in st.session_state:
         st.session_state.journal_entries = []
 
@@ -430,17 +431,48 @@ else:
         elif velocity_delta < -0.5:
             st.error("⚠️ Fatigue Dip Detected: Current logs point to an active energy drain compared to your baseline trend.")
         else:
-            st.info("⚖️ Stable Equilibrium: Current velocity matches your steady historical momentum.")    
-            
-        # Dynamic Status Trend Card
-        st.markdown("#### Current Directional Vector")
-        if velocity_delta > 0.5:
-            st.success("🚀 Positive Acceleration: Your localized daily mindset is outperforming your historical baseline.")
-        elif velocity_delta < -0.5:
-            st.error("⚠️ Fatigue Dip Detected: Current logs point to an active energy drain compared to your baseline trend.")
-        else:
             st.info("⚖️ Stable Equilibrium: Current velocity matches your steady historical momentum.")
-
+        
+        # ==========================================
+        # 📊 DYNAMIC MOOD DISTRIBUTION MATRIX (NEW)
+        # ==========================================
+        st.markdown("#### 📉 Weekly Sentiment Density Distribution")
+        
+        # Extract and compile a flat vector of recent metrics
+        historical_scores = [log.get("metrics", {}).get("sentiment_score", 7) for log in saved_logs]
+        
+        if historical_scores:
+            # Map structural categorical labels to score ranges for cleaner visualization
+            score_categories = {
+                10: "Accomplished (10)", 9: "Accomplished (9)", 8: "Accomplished (8)",
+                7: "Balanced (7)", 6: "Balanced (6)", 5: "Balanced (5)",
+                4: "Exhausted (4)", 3: "Exhausted (3)", 2: "Exhausted (2)", 1: "Exhausted (1)"
+            }
+            
+            # Construct a clean relational frequency series
+            distribution_map = []
+            for score in historical_scores:
+                distribution_map.append({
+                    "Score Level": score,
+                    "Mood Tier": score_categories.get(score, f"Level {score}"),
+                    "Logs Count": 1
+                })
+            
+            # Formulate structured analytical dataframe
+            chart_dataframe = pd.DataFrame(distribution_map)
+            
+            # Aggregate entries to compute frequency density per score bracket
+            summary_chart_data = chart_dataframe.groupby(["Mood Tier"]).sum().reset_index()
+            
+            # Render a high-fidelity native horizontal bar chart
+            st.bar_chart(
+                data=summary_chart_data,
+                x="Mood Tier",
+                y="Logs Count",
+                use_container_width=True
+            )
+        else:
+            st.info("Insufficient metrics available to populate density charts.")
         # --- CHRONOLOGICAL FEED ---
         st.markdown("#### Chronological Entries Feed")
         logs_list = list(saved_logs)
