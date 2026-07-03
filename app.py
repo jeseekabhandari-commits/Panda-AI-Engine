@@ -157,6 +157,9 @@ active_app = st.sidebar.radio(
     index=1 if st.session_state["current_active_view"] == "📓 Personal AI Journal" else 0
 )
 
+# ==========================================
+
+
 # 🔄 THE SYNC BARRIER: Detect cross-application transitions and flush stale layouts
 if active_app != st.session_state["current_active_view"]:
     st.session_state["current_active_view"] = active_app
@@ -167,6 +170,42 @@ if active_app != st.session_state["current_active_view"]:
     st.toast("Application context synchronized cleanly!", icon="🔄")
     st.rerun()
 
+
+# ==========================================
+# ⚙️ SYSTEM LIFECYCLE DESTRUCTION GATE (NEW)
+# ==========================================
+st.sidebar.markdown("---")
+st.sidebar.markdown("### ⚠️ System Maintenance")
+
+# Leverage an expander state to act as a dual-layer confirmation barrier
+with st.sidebar.expander("🚨 Factory Reset Data Vault"):
+    st.warning("This operation is completely destructive and will instantly purge all historical metric data nodes.")
+    
+    # Injected Confirmation Safe-Lock Toggle
+    confirm_purge = st.checkbox("I understand this action cannot be undone.", key="purge_lock")
+    
+    # Execution Button Gate
+    if st.button("💥 Execute Hard Factory Reset", type="primary", disabled=not confirm_purge):
+        temp_reset_path = f"{DB_FILENAME}.tmp"
+        try:
+            # Step 1: Write an empty structural layout to our shadow file
+            with open(temp_reset_path, "w", encoding="utf-8") as temp_stream:
+                json.dump([], temp_stream, indent=4)
+            
+            # Step 2: Swap the blank template atomically over production database
+            os.replace(temp_reset_path, DB_FILENAME)
+            
+            # Step 3: Evict runtime cache indicators from session state memory
+            st.session_state.journal_entries = []
+            
+            st.toast("System architecture successfully restored to factory defaults!", icon="🧹")
+            time.sleep(0.4)
+            st.rerun()
+            
+        except IOError as reset_fault:
+            if os.path.exists(temp_reset_path):
+                os.remove(temp_reset_path)
+            st.sidebar.error(f"Reset Failure: {reset_fault}")
 # ==========================================
 # 🐼 APP 1: PANDY VIRTUAL PET ROUTE
 # ==========================================
