@@ -62,38 +62,47 @@ def load_database_records(filepath: str) -> list:
 
 def save_database_record(filepath: str, payload: dict) -> bool:
     """Serializes and appends a fresh operational tracking frame to disk storage.
-    Enforces atomic thread safety using a transient shadow dump staging routine.
-
-    Args:
-        filepath (str): Target disk path to the system log storage file.
-        payload (dict): Structured transaction dictionary to write to disk.
-
-    Returns:
-        bool: True if transaction committed successfully, False otherwise.
+    Enforces atomic thread safety via shadow staging and triggers an automated
+    timestamped temporal backup copy in a secure vault directory.
     """
     if not payload or not isinstance(payload, dict):
         st.warning("Validation Skipped: Attempted to log an empty or invalid data payload structure.")
         return False
 
     temp_filepath = f"{filepath}.tmp"
+    backup_dir = "journal_vault_backups"
+    
     try:
+        # Enforce instant initialization of the backup directory vault
+        if not os.path.exists(backup_dir):
+            os.makedirs(backup_dir)
+            
         # Load stable memory frames
         history_log = load_database_records(filepath)
         history_log.append(payload)
         
-        # Phase 1: Write atomic data into the shadow clone
+        # 1️⃣ Write atomic data into the shadow clone first
         with open(temp_filepath, "w", encoding="utf-8") as temp_stream:
             json.dump(history_log, temp_stream, indent=4)
         
-        # Phase 2: Perform atomic replacement (POSIX system swap)
+        # 2️⃣ Perform atomic replacement over production file
         if os.path.exists(temp_filepath):
             os.replace(temp_filepath, filepath)
+            
+            # 3️⃣ TEMPORAL ROTATION: Generate isolated snapshot mirror
+            timestamp_slug = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_filename = f"backup_{timestamp_slug}.json"
+            backup_filepath = os.path.join(backup_dir, backup_filename)
+            
+            with open(backup_filepath, "w", encoding="utf-8") as backup_stream:
+                json.dump(history_log, backup_stream, indent=4)
+                
             return True
         return False
     except (IOError, OSError) as write_error:
         if os.path.exists(temp_filepath):
             os.remove(temp_filepath)  # Clean up orphaned temp files
-        st.error(f"⚠️ Critical Storage Write Failure: {write_error}")
+        st.error(f" Critical Storage Write Failure: {write_error}")
         return False
     
 
@@ -331,8 +340,8 @@ if active_app == "🐼 Pandy Virtual Pet":
 # 📓 APP 2: AI JOURNALING ASSISTANT ROUTE
 # ==========================================
 else:
-    st.title("📓 Personal AI Journaling Assistant")
-    st.subheader("Day 45: Relational Data Mapping & Visual Telemetry Matrices")
+    st.title("📓 Personal AI Journaling Assistant") 
+    st.subheader("Day 48: Temporal Vault Rotation & Multi-Tier Backup Infrastructure")
     if "journal_entries" not in st.session_state:
         st.session_state.journal_entries = []
 

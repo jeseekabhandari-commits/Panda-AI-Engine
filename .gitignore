@@ -184,3 +184,4 @@ memory.json
 all_pandas
 .env
 journal_db.json
+journal_vault_backups
