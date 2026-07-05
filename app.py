@@ -341,7 +341,7 @@ if active_app == "🐼 Pandy Virtual Pet":
 # ==========================================
 else:
     st.title("📓 Personal AI Journaling Assistant") 
-    st.subheader("Day 48: Temporal Vault Rotation & Multi-Tier Backup Infrastructure")
+    st.subheader("Day 49: Sliding-Window Resource Caps & Viewport Eviction Policies")
     if "journal_entries" not in st.session_state:
         st.session_state.journal_entries = []
 
@@ -438,6 +438,10 @@ else:
         total_logs = len(saved_logs)
         global_avg = sum(log.get("metrics", {}).get("sentiment_score", 7) for log in saved_logs) / total_logs
         
+        VIEW_WINDOW_LIMIT = 30
+        active_window_logs = saved_logs[-VIEW_WINDOW_LIMIT:]  # Slices only the latest 30 records
+        evicted_count = max(0, total_logs - VIEW_WINDOW_LIMIT)
+        
         today_avg = sum(today_scores) / len(today_scores) if today_scores else None
         past_avg = sum(past_scores) / len(past_scores) if past_scores else global_avg
         
@@ -487,7 +491,7 @@ else:
         st.markdown("#### 📉 Weekly Sentiment Density Distribution")
         
         # Extract and compile a flat vector of recent metrics
-        historical_scores = [log.get("metrics", {}).get("sentiment_score", 7) for log in saved_logs]
+        historical_scores = [log.get("metrics", {}).get("sentiment_score", 7) for log in active_window_logs]
         
         if historical_scores:
             # Map structural categorical labels to score ranges for cleaner visualization
@@ -511,6 +515,10 @@ else:
             
             # Aggregate entries to compute frequency density per score bracket
             summary_chart_data = chart_dataframe.groupby(["Mood Tier"]).sum().reset_index()
+            
+            
+            if evicted_count > 0:
+                 st.caption(f"⚡ Performance Optimization Active: Displaying latest {VIEW_WINDOW_LIMIT} trends. ({evicted_count} historical records safely archived on disk).")
             
             # Render a high-fidelity native horizontal bar chart
             st.bar_chart(
