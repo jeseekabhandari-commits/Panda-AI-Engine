@@ -341,7 +341,7 @@ if active_app == "🐼 Pandy Virtual Pet":
 # ==========================================
 else:
     st.title("📓 Personal AI Journaling Assistant") 
-    st.subheader("Day 49: Sliding-Window Resource Caps & Viewport Eviction Policies")
+    st.subheader("Day 50: Halfway Milestone — Advanced Statistical Drift & Volatility Tripwires")
     if "journal_entries" not in st.session_state:
         st.session_state.journal_entries = []
 
@@ -435,9 +435,11 @@ else:
                 past_scores.append(log_score)
         
         # --- CALCULATE AGGREGATE COUPLING COEFFICIENTS ---
+        # --- CALCULATE AGGREGATE COUPLING COEFFICIENTS ---
         total_logs = len(saved_logs)
         global_avg = sum(log.get("metrics", {}).get("sentiment_score", 7) for log in saved_logs) / total_logs
         
+        # 🧠 DYNAMIC CACHE EVICTION: Enforce a strict 30-day sliding viewport window
         VIEW_WINDOW_LIMIT = 30
         active_window_logs = saved_logs[-VIEW_WINDOW_LIMIT:]  # Slices only the latest 30 records
         evicted_count = max(0, total_logs - VIEW_WINDOW_LIMIT)
@@ -445,7 +447,7 @@ else:
         today_avg = sum(today_scores) / len(today_scores) if today_scores else None
         past_avg = sum(past_scores) / len(past_scores) if past_scores else global_avg
         
-        # Compute Velocity Delta (Today's performance vs. Baseline Past History)
+        # Compute Velocity Delta
         if today_avg is not None:
             velocity_delta = today_avg - past_avg
             delta_string = f"{velocity_delta:+.2f} vs. Baseline"
@@ -453,7 +455,19 @@ else:
             velocity_delta = 0.0
             delta_string = "No entries today yet"
 
-        # --- RENDER HARDENED METRIC TILES ---
+        # ⚡ DAY 50: ADVANCED STATISTICAL DRIFT INTERCEPTOR
+        # Calculate the rolling score variance of the last 3 entries to detect sudden mental/productivity shifts
+        recent_3_scores = [log.get("metrics", {}).get("sentiment_score", 7) for log in saved_logs[-3:]]
+        recent_3_avg = sum(recent_3_scores) / len(recent_3_scores) if recent_3_scores else global_avg
+        
+        # Drift Condition: If short-term velocity drops 2.0+ points below the global multi-day average
+        drift_anomaly_detected = (global_avg - recent_3_avg) >= 2.0
+
+        # 🚨 ANOMALOUS SHOCK TRIPWIRE BANNER
+        if drift_anomaly_detected:
+            st.error(f"🚨 **Critical Operational Drift Flagged:** A sudden localized baseline fracture has been detected. Your 3-day momentum average ({recent_3_avg:.1f}/10) has plummeted drastically relative to your lifetime system baseline average ({global_avg:.1f}/10). Investigate burn-out factors immediately.")
+            st.markdown("---")
+
         stat_col1, stat_col2, stat_col3 = st.columns(3)
         
         with stat_col1:
@@ -469,22 +483,29 @@ else:
                 delta_color="off"
             )
         with stat_col3:
-            st.metric(
+           if today_avg is not None:
+                main_velocity_display = f"{velocity_delta:+.2f}"
+                sub_delta_display = f"Today's Avg: {today_avg:.1f}/10"
+           else:
+                main_velocity_display = "N/A"
+                sub_delta_display = "No Entries Today"
+            
+           st.metric(
                 label="Sentiment Velocity Delta", 
                 value=f"{today_avg:.1f} / 10" if today_avg is not None else "N/A", 
                 delta=delta_string,
                 delta_color="normal" if velocity_delta >= 0 else "inverse"
             )
-            
+
         # Dynamic Status Trend Card
         st.markdown("#### Current Directional Vector")
+         
         if velocity_delta > 0.5:
             st.success("🚀 Positive Acceleration: Your localized daily mindset is outperforming your historical baseline.")
         elif velocity_delta < -0.5:
             st.error("⚠️ Fatigue Dip Detected: Current logs point to an active energy drain compared to your baseline trend.")
         else:
             st.info("⚖️ Stable Equilibrium: Current velocity matches your steady historical momentum.")
-        
         # ==========================================
         # 📊 DYNAMIC MOOD DISTRIBUTION MATRIX (NEW)
         # ==========================================
