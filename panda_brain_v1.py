@@ -9,8 +9,8 @@ import os
 import sys
 from dotenv import load_dotenv
 import google.generativeai as genai
-
-   
+from pathlib import Path
+import streamlit as st
 
 class PandaCharacter:
   
@@ -376,6 +376,25 @@ class PandaCharacter:
           
 load_dotenv()
 
+base_dir = Path(__file__).resolve().parent
+env_path = base_dir / ".env"
+
+# Load the explicit path
+load_dotenv(dotenv_path=env_path)
+
+SECRET_API_KEY = os.getenv("GEMINI_API_KEY")
+
+# 🚨 DIAGNOSTIC SAFETY CHECK (Prints right to your terminal log screen)
+print("\n--- 🔑 STEALTH KEY VERIFICATION LAYER ---")
+if SECRET_API_KEY:
+    # Safely print just the first 4 characters to confirm it's loading, without exposing the secret!
+    print(f"✅ Vault Status: ACTIVE. Key successfully loaded into RAM (Starts with: {SECRET_API_KEY[:4]}...)")
+    genai.configure(api_key=SECRET_API_KEY)
+else:
+    print("❌ Vault Status: CRITICAL ERROR. The system returned 'None'. Python cannot find or read your .env file!")
+    print(f"Target path checked was: {env_path}")
+print("----------------------------------------\n")
+
 class PandaBrain:
     
     def __init__(self):
@@ -393,55 +412,149 @@ class PandaBrain:
             self.online_mode = True
         else:
             self.online_mode = False
+    
+    def update_telemetry(self, user_msg):
+        """
+        Analyzes the user's input sentence to dynamically adjust 
+        Pandy's internal energy and mood metrics.
+        """
+        msg_lower = user_msg.lower()
+        
+        # 🧠 Context Trigger 1: Exam Stress / Heavy Work
+        if any(word in msg_lower for word in ["exam", "study", "studying", "test", "deadline", "homework"]):
+            self.energy = max(15, self.energy - 15)  # Drains energy
+            self.mood = "Empathetic but Tired"
+            
+        # 🎋 Context Trigger 2: Food & Recharging
+        elif any(word in msg_lower for word in ["bamboo", "eat", "food", "snack", "sleep", "nap"]):
+            self.energy = min(100, self.energy + 25)  # Boosts energy
+            self.mood = "Happy & Content"
+            
+        # ⚡ Context Trigger 3: High Energy Greetings
+        elif any(word in msg_lower for word in ["hi", "hello", "hey", "let's go", "hype"]):
+            self.energy = min(100, self.energy + 5)
+            if self.energy > 75:
+                self.mood = "Hyperactive"
+            else:
+                self.mood = "Chilled"
 
-    def talk_to_pandy_web(self, user_msg, live_energy, live_mood,memo):
-     """
-      
-    Assembles a rolling multi-turn conversation log to provide your digital pet 
-    with functional persistent memory while maintaining threshold emotional tone shifts.
-    """
-    # 1. Day 29 Vitals Threshold Logic
-     if live_energy < 30:
-        energy_rule = "CRITICAL: You are starving and exhausted. Keep your response very short, lazy, and mention needing a nap or bamboo."
-     elif live_energy > 80:
-        energy_rule = "CRITICAL: You are hyperactive and full of life! Be extremely witty, enthusiastic, and crack a joke."
-     else:
+    def talk_to_pandy_web(self, user_msg, live_energy, live_mood, memo, prompt_modifier=None, **k):
+        """
+        Hardened Brain Engine: Computes real-time persistent telemetry updates
+        and returns BOTH the text response and the updated metrics back to the UI state.
+        """
+        import os
+        from pathlib import Path
+        import google.generativeai as genai
+        from dotenv import load_dotenv
+
+        # 🎯 FORCE PATH RESOLUTION INSIDE THE RUNNING FUNCTION
+        active_file_location = Path(__file__).resolve()
+        target_env_path = active_file_location.parent / ".env"
+        
+        # Explicitly reload the environment variables right now
+        load_dotenv(dotenv_path=target_env_path, override=True)
+        SECRET_API_KEY = os.getenv("GEMINI_API_KEY")
+
+        if not SECRET_API_KEY:
+            return (
+                f"❌ SYSTEM PATH MISMATCH ERROR\n\n"
+                f"Streamlit is actively reading this specific file:\n`{active_file_location}`\n\n"
+                f"It searched for your hidden `.env` file here:\n`{target_env_path}`\n\n"
+                f"**Result:** File does not exist, is empty, or variable name is misspelled!"
+            ), live_energy, live_mood
+
+        # Apply configuration tokens to Google's servers
+        genai.configure(api_key=SECRET_API_KEY)
+    
+        # 📊 DYNAMIC TELEMETRY CALCULATION (Using true current values)
+        msg_lower = user_msg.lower()
+    
+        # Context Trigger 1: Heavy Exam Stress / Study Talk
+        if any(word in msg_lower for word in ["exam", "study", "studying", "test", "deadline", "homework"]):
+            st.session_state.energy= max(15, live_energy - 15)  # Drains energy
+            st.session_state.mood = "Empathetic but Tired"
+            
+        # Context Trigger 2: Recharging & Rewards
+        elif any(word in msg_lower for word in ["bamboo", "eat", "food", "snack", "sleep", "nap"]):
+            st.session_state.energy = min(100, live_energy + 25)  # Boosts energy
+            st.session_state.mood= "Happy & Content"
+            
+        # Context Trigger 3: Hype / Greetings
+        elif any(word in msg_lower for word in ["hi", "hello", "hey", "let's go", "hype"]):
+            st.session_state.energy = min(100, live_energy + 5)
+            st.session_state.mood = "Hyperactive" if  st.session_state.energy  > 80 else "Chilled"
+
+        # 🧠 BEHAVIORAL PROMPT TUNING (Using the newly shifted values)
         energy_rule = "Be conversational, friendly, and matching your normal chilled-out state."
+        if  st.session_state.energy < 30:
+            energy_rule = "CRITICAL: You are starving and exhausted. Keep your response very short, lazy, and mention needing a nap or bamboo."
+        elif st.session_state.energy > 80:
+            energy_rule = "CRITICAL: You are hyperactive and full of life! Be extremely witty, enthusiastic, and crack a joke."
+        else:
+            st.session_state.mood = "Chilled"
+            energy_rule = "Be conversational, friendly, relaxed, and matching your normal chilled-out pet state."
+        system_context = (
+            f"You are an AI character engine representing a digital virtual panda pet.\n"
+            f"Your CURRENT LIVE status metrics are EXACTLY:\n"
+            f"- Mood: {st.session_state.mood}\n"
+            f"- Energy: {st.session_state.energy}%\n"
+            f"Behavioral Guideline: {energy_rule}\n"
+            f"CRITICAL: Always stay completely in character. Do not mention being a language model."
+        )
 
-    # 2. Base Character Grounding Rules
-     system_context = (
-        f"You are an AI character engine representing a digital virtual panda pet.\n"
-        f"Your CURRENT LIVE status metrics are EXACTLY:\n"
-        f"- Mood: {live_mood}\n"
-        f"- Energy: {live_energy}%\n"
-        f"Behavioral Guideline: {energy_rule}\n"
-        f"CRITICAL: Always stay completely in character. Do not mention being a language model."
-      )
+        system_instructions = f"You are Pandy, a helpful virtual companion. Current Energy: {  st.session_state.energy}%, Mood: {  st.session_state.mood}."
+        if prompt_modifier:
+            system_instructions += f"\n\n{prompt_modifier}"
 
-     if self.online_mode:
-        try:
-            # 3. Memory Assembly: Slice history to grab only the last 10 messages for token efficiency
-            rolling_history = memo[-10:] if len(memo) > 10 else memo
-            
-            # 4. Build the chronological conversational transcript block
-            transcript = ""
-            for msg in rolling_history:
-                role_label = "User" if msg["role"] == "user" else "Model"
-                transcript += f"{role_label}: {msg['content']}\n"
-            
-            # Append the brand new message to the tail end of the transcript execution
-            transcript += f"User: {user_msg}\nModel:"
+        # 🎬 PIPELINE PIPING & EXECUTION
+        if self.online_mode:
+            try:
+                # Filter out contaminated logs
+                chat_history = [m for m in memo if m.get("role") in ["user", "assistant"] and m.get("content") is not None]
+                if not chat_history:
+                    chat_history = [{"role": "assistant", "content": "Hello!"}]
+                
+                def calculate_memory_weight(msg):
+                    content = str(msg.get("content", "")).lower()
+                    weight = len(content)
+                    anchors = ["name", "remember", "project", "exam", "feel", "study", "tired", "deadline"]
+                    if any(anchor in content for anchor in anchors):
+                        weight += 200
+                    return weight
 
-            # 5. Compile the final structural context package
-            full_payload = f"System Context:\n{system_context}\n\nChat History Log:\n{transcript}"
-            
-            # Fire the complete multi-turn stack to the API instance
-            response = self.model.generate_content(full_payload)
-            return response.text
+                prioritized_logs = sorted(chat_history[:-1], key=calculate_memory_weight, reverse=True)
+                core_anchors = prioritized_logs[:6]
+                immediate_flow = chat_history[-3:] if len(chat_history) >= 3 else chat_history
+                
+                unique_memories = {}
+                for m in (core_anchors + immediate_flow):
+                    # If content is a list (e.g., streaming components), extract the first element or join it
+                    raw_content = m.get("content", "")
+                    if isinstance(raw_content, list):
+                        string_key = " ".join([str(item) for item in raw_content])
+                    else:
+                        string_key = str(raw_content)
+                    
+                    unique_memories[string_key] = m
 
-        except Exception as e:
-            if "429" in str(e) or "quota" in str(e).lower():
-                return "🤖 *Your panda companion is catching their breath! (API Rate Limit reached. Wait a few seconds before trying again).* 🐼💤"
-            return f"⚠️ Connection Error: {e}\nFallback: I received '{user_msg}'"
-     else:
-        return f"🐼 (Offline Mode): I received '{user_msg}'"
+                active_memory_pool = list(unique_memories.values())
+                active_memory_pool = sorted(active_memory_pool, key=lambda x: chat_history.index(x))
+                transcript = ""
+                for msg in active_memory_pool:
+                    role_label = "User" if msg["role"] == "user" else "Model"
+                    transcript += f"{role_label}: {msg['content']}\n"
+
+                transcript += f"User: {user_msg}\nModel:"
+                full_payload = f"System Context:\n{system_context}\n\nTelemetry Adjustments:\n{system_instructions}\n\nChat History Log:\n{transcript}"
+
+                response = self.model.generate_content(full_payload)
+                
+                if response and hasattr(response, 'text') and response.text:
+                    return response.text,   st.session_state.mood,st.session_state.energy
+                
+                return "🐼 *Pandy is connected, but the model returned an empty text payload.*",  st.session_state.energy,st.session_state.mood
+            except Exception as e:
+                return f"⚠️ Brain Engine Exception: {str(e)}",   st.session_state.energy,   st.session_state.mood
+        
+        return f"🐼 (Offline Mode): I received '{user_msg}'",   st.session_state.energy,   st.session_state.mood

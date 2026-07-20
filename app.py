@@ -12,10 +12,13 @@ from datetime import datetime
 import streamlit as st
 from memory_service import MemoryService  # Adjust file name if different
 from panda_brain_v1 import PandaBrain
-
+from extractor import MeetingNoteExtractor
+from dotenv import load_dotenv
+from ingest_service import insert_job_description
 # =====================================================================
 # GLOBAL CONFIGURATION & PERFORMANCE SETTINGS
 # =====================================================================
+load_dotenv()
 st.set_page_config(
     page_title="Project Dashboard Engine",
     page_icon="🚀",
@@ -148,6 +151,31 @@ def execute_offline_sentiment_pipeline(text: str) -> dict:
         return {"sentiment_score": calculated_score, "dominant_mood": "Balanced", "summary_tag": "Steady Momentum"}
     else:
         return {"sentiment_score": calculated_score, "dominant_mood": "Exhausted", "summary_tag": "Fatigue Warning"}
+ 
+
+def get_journal_context_for_agent(journal_filepath: str) -> dict:
+    """Safely parses disk journal logs to extract live stress indicators,
+    preventing any file locks or schema crashes.
+    """
+    context = {"drift_flag": False, "recent_avg": 7.0}
+    try:
+        if os.path.exists(journal_filepath):
+            with open(journal_filepath, "r", encoding="utf-8") as file:
+                logs = json.load(file)
+            if logs:
+                total_logs = len(logs)
+                global_avg = sum(log.get("metrics", {}).get("sentiment_score", 7) for log in logs) / total_logs
+                
+                # Extract rolling 3-day window metrics
+                recent_3_scores = [log.get("metrics", {}).get("sentiment_score", 7) for log in logs[-3:]]
+                recent_3_avg = sum(recent_3_scores) / len(recent_3_scores) if recent_3_scores else global_avg
+                
+                context["recent_avg"] = round(recent_3_avg, 2)
+                context["drift_flag"] = (global_avg - recent_3_avg) >= 2.0
+    except Exception as context_error:
+        # Prevent any structural crashes in Pandy's route if journal file is corrupted
+        pass
+    return context
 
 # ==========================================
 # 🗺️ GLOBAL MULTI-APP NAVIGATION ROUTER
@@ -162,7 +190,7 @@ if "current_active_view" not in st.session_state:
 st.sidebar.title("🚀 Project Dashboard")
 active_app = st.sidebar.radio(
     "Select Application:",
-    ["🐼 Pandy Virtual Pet", "📓 Personal AI Journal"],
+    ["🐼 Pandy Virtual Pet", "📓 Personal AI Journal","video extractor🤖🤖","⚡ AI Data Ingestion Engine"],
     index=1 if st.session_state["current_active_view"] == "📓 Personal AI Journal" else 0
 )
 
@@ -295,7 +323,22 @@ if active_app == "🐼 Pandy Virtual Pet":
         current_mood = calculate_live_mood(st.session_state.energy)
         is_full = st.session_state.energy >= 100
         is_exhausted = st.session_state.energy <= 0
-
+         
+        # Fetch live telemetry from the Journal database
+        journal_stats = get_journal_context_for_agent("journal_db.json")
+        
+        # Adjust Pandy's personality parameters based on live stress flags
+        if journal_stats["drift_flag"]:
+            pandy_mood = "❤️ Empathetic & Supportive"
+            pandy_prompt_modifier = (
+                "SYSTEM NOTE: The user's system metrics indicate a severe fatigue dip or mental burnout. "
+                "Shift your tone. Be incredibly supportive, gentle, encouraging, and recommend brief breaks. "
+                "Prioritize comfort over high-energy productivity banter."
+            )
+        else:
+            pandy_mood = "⚡ Playful & Energetic"
+            pandy_prompt_modifier = "SYSTEM NOTE: The user is operating at normal or high momentum. Keep your usual witty, engaging self."
+        
         with st.sidebar:
             st.header("📊 Vitals Engine")
             st.metric(label="Energy Level", value=f"{st.session_state.energy}%")
@@ -311,7 +354,14 @@ if active_app == "🐼 Pandy Virtual Pet":
                 st.session_state.energy = max(0, st.session_state.energy - 20)
                 memory_manager.save_memory(st.session_state["active_panda"], st.session_state.energy, st.session_state.messages)
                 st.rerun()
-
+            
+            # Status Card in Pandy's interface
+        with st.expander("🧠 Pandy's Cognitive State", expanded=True):
+            st.write(f"**Current Personality Vector:** {pandy_mood}")
+            st.write(f"**Synced 3-Day Momentum Average:** {journal_stats['recent_avg']}/10")
+            if journal_stats["drift_flag"]:
+                st.warning("⚠️ Pandy has detected your fatigue dip and entered comforting mode.")
+        
         for msg in st.session_state.messages:
             with st.chat_message(msg["role"]):
                 st.write(msg["content"])
@@ -325,268 +375,359 @@ if active_app == "🐼 Pandy Virtual Pet":
               
             with st.chat_message("assistant"):
                 with st.spinner(f"{current_panda.capitalize()} is processing response..."):
-                    pandy_response = pandy_brain.talk_to_pandy_web(
-                        user_msg=user_input, 
+                   enriched_user_msg = user_input
+                   if journal_stats["drift_flag"]:
+                        enriched_user_msg += f"\n\n[CONTEXT OVERRIDE: {pandy_prompt_modifier}]"
+                   
+                   pandy_response = pandy_brain.talk_to_pandy_web(
+                        user_msg=enriched_user_msg, 
                         live_energy=st.session_state.energy, 
                         live_mood=current_mood,
                         memo=st.session_state.messages
                     )
-                    st.write(pandy_response)
-                  
+                st.write(pandy_response)
+                 
             st.session_state.messages.append({"role": "assistant", "content": pandy_response})
             memory_manager.save_memory(st.session_state["active_panda"], st.session_state.energy, st.session_state.messages)
 
-# ==========================================
-# 📓 APP 2: AI JOURNALING ASSISTANT ROUTE
-# ==========================================
-else:
-    st.title("📓 Personal AI Journaling Assistant") 
-    st.subheader("Day 50: Halfway Milestone — Advanced Statistical Drift & Volatility Tripwires")
-    if "journal_entries" not in st.session_state:
-        st.session_state.journal_entries = []
+     # ==========================================
+     # 📓 APP 2: AI JOURNALING ASSISTANT ROUTE
+    # ==========================================
+elif active_app == "📓 Personal AI Journal":
+        st.title("📓 Personal AI Journaling Assistant") 
+        st.subheader("Day 52: Dynamic Memory Indexing & Contextual Recall Thresholds")
+        if "journal_entries" not in st.session_state:
+            st.session_state.journal_entries = []
 
-    # --- WORKSPACE GRID ---
-    col1, col2 = st.columns([2, 1])
+        # --- WORKSPACE GRID ---
+        col1, col2 = st.columns([2, 1])
 
-    with col1:
-        st.markdown("### 📝 Write Today's Reflection")
-        journal_input = st.text_area(
-            "How was your day? Write down your raw thoughts, struggles, or wins:",
-            height=200,
-            placeholder="Type your entry here...",
-            key="journal_text_box"
-        )
-        submit_entry = st.button("Analyze & Log Entry", type="primary")
+        with col1:
+            st.markdown("### 📝 Write Today's Reflection")
+            journal_input = st.text_area(
+                "How was your day? Write down your raw thoughts, struggles, or wins:",
+                height=200,
+                placeholder="Type your entry here...",
+                key="journal_text_box"
+            )
+            submit_entry = st.button("Analyze & Log Entry", type="primary")
 
-    with col2:
-        st.markdown("### 📊 Live Sentiment Analysis")
-        
-        if submit_entry and journal_input:
-            # ⏱️ START TELEMETRY CLOCK
-            execution_start_timestamp = time.perf_counter()
+        with col2:
+            st.markdown("### 📊 Live Sentiment Analysis")
             
-            with st.spinner("Processing local text matrices..."):
-                time.sleep(0.05)  # Mimicking optimized hardware pipeline latency
+            if submit_entry and journal_input:
+                # ⏱️ START TELEMETRY CLOCK
+                execution_start_timestamp = time.perf_counter()
                 
-                # Execute decoupled processing modules
-                analysis_data = execute_offline_sentiment_pipeline(journal_input)
+                with st.spinner("Processing local text matrices..."):
+                    time.sleep(0.05)  # Mimicking optimized hardware pipeline latency
+                    
+                    # Execute decoupled processing modules
+                    analysis_data = execute_offline_sentiment_pipeline(journal_input)
+                    
+                    entry_payload = {
+                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "raw_text": journal_input,
+                        "metrics": analysis_data
+                    }
+                    
+                    # Commit structural updates
+                    save_database_record(DB_FILENAME, entry_payload)
+                    st.toast("Data matrix logged!", icon="💾")
+                    
+                    # Render Design Variations
+                    score = analysis_data["sentiment_score"]
+                    if score >= 8:
+                        st.success(f"Dominant Mood: {analysis_data['dominant_mood']}")
+                        st.metric(label="Sentiment Score", value=f"{score}/10", delta="Excellent State")
+                        st.balloons()
+                    elif score >= 6:
+                        st.info(f"Dominant Mood: {analysis_data['dominant_mood']}")
+                        st.metric(label="Sentiment Score", value=f"{score}/10", delta="Stable Matrix", delta_color="off")
+                    else:
+                        st.error(f"Dominant Mood: {analysis_data['dominant_mood']}")
+                        st.metric(label="Sentiment Score", value=f"{score}/10", delta="- Fatigue Alert", delta_color="inverse")
+                        
+                    st.markdown(f"**Brief Index Summary:**")
+                    st.code(analysis_data['summary_tag'], language="text")
+
+                # ⏱️ STOP TELEMETRY CLOCK
+                execution_end_timestamp = time.perf_counter()
+                total_latency_ms = (execution_end_timestamp - execution_start_timestamp) * 1000
                 
-                entry_payload = {
-                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "raw_text": journal_input,
-                    "metrics": analysis_data
+                # Render clear performance metrics below the analytics window
+                st.metric(
+                    label="⚡ System Processing Latency", 
+                    value=f"{total_latency_ms:.2f} ms", 
+                    delta="Target: < 200.00 ms",
+                    delta_color="normal" if total_latency_ms < 200 else "inverse"
+                )
+            else:
+                st.info("Awaiting input transmision")
+        st.markdown("---")
+        st.markdown("### 📊 Historical Analytics & Velocity Tracking")
+
+        saved_logs = load_database_records(DB_FILENAME)
+
+        if not saved_logs:
+            st.warning("Database file empty or uninitialized.")
+        else:
+            # --- COMPUTE TIME-SERIES CLUSTERING ---
+            current_date_str = datetime.now().strftime("%Y-%m-%d")
+            
+            today_scores = []
+            past_scores = []
+            
+            for log in saved_logs:
+                log_ts = log.get("timestamp", "")
+                log_score = log.get("metrics", {}).get("sentiment_score", 7)
+                
+                # Cluster logs based on calendar day matching
+                if log_ts.startswith(current_date_str):
+                    today_scores.append(log_score)
+                else:
+                    past_scores.append(log_score)
+            
+            # --- CALCULATE AGGREGATE COUPLING COEFFICIENTS ---
+            # --- CALCULATE AGGREGATE COUPLING COEFFICIENTS ---
+            total_logs = len(saved_logs)
+            global_avg = sum(log.get("metrics", {}).get("sentiment_score", 7) for log in saved_logs) / total_logs
+            
+            # 🧠 DYNAMIC CACHE EVICTION: Enforce a strict 30-day sliding viewport window
+            VIEW_WINDOW_LIMIT = 30
+            active_window_logs = saved_logs[-VIEW_WINDOW_LIMIT:]  # Slices only the latest 30 records
+            evicted_count = max(0, total_logs - VIEW_WINDOW_LIMIT)
+            
+            today_avg = sum(today_scores) / len(today_scores) if today_scores else None
+            past_avg = sum(past_scores) / len(past_scores) if past_scores else global_avg
+            
+            # Compute Velocity Delta
+            if today_avg is not None:
+                velocity_delta = today_avg - past_avg
+                delta_string = f"{velocity_delta:+.2f} vs. Baseline"
+            else:
+                velocity_delta = 0.0
+                delta_string = "No entries today yet"
+
+            # ⚡ DAY 50: ADVANCED STATISTICAL DRIFT INTERCEPTOR
+            # Calculate the rolling score variance of the last 3 entries to detect sudden mental/productivity shifts
+            recent_3_scores = [log.get("metrics", {}).get("sentiment_score", 7) for log in saved_logs[-3:]]
+            recent_3_avg = sum(recent_3_scores) / len(recent_3_scores) if recent_3_scores else global_avg
+            
+            # Drift Condition: If short-term velocity drops 2.0+ points below the global multi-day average
+            drift_anomaly_detected = (global_avg - recent_3_avg) >= 2.0
+
+            # 🚨 ANOMALOUS SHOCK TRIPWIRE BANNER
+            if drift_anomaly_detected:
+                st.error(f"🚨 **Critical Operational Drift Flagged:** A sudden localized baseline fracture has been detected. Your 3-day momentum average ({recent_3_avg:.1f}/10) has plummeted drastically relative to your lifetime system baseline average ({global_avg:.1f}/10). Investigate burn-out factors immediately.")
+                st.markdown("---")
+
+            stat_col1, stat_col2, stat_col3 = st.columns(3)
+            
+            with stat_col1:
+                st.metric(
+                    label="Total Reflections Logged", 
+                    value=f"{total_logs} Days"
+                )
+            with stat_col2:
+                st.metric(
+                    label="Lifetime Sentiment Avg", 
+                    value=f"{global_avg:.1f} / 10",
+                    delta="System Baseline",
+                    delta_color="off"
+                )
+            with stat_col3:
+                if today_avg is not None:
+                    main_velocity_display = f"{velocity_delta:+.2f}"
+                    sub_delta_display = f"Today's Avg: {today_avg:.1f}/10"
+                else:
+                    main_velocity_display = "N/A"
+                    sub_delta_display = "No Entries Today"
+                
+                st.metric(
+                    label="Sentiment Velocity Delta", 
+                    value=f"{today_avg:.1f} / 10" if today_avg is not None else "N/A", 
+                    delta=delta_string,
+                    delta_color="normal" if velocity_delta >= 0 else "inverse"
+                )
+
+            # Dynamic Status Trend Card
+            st.markdown("#### Current Directional Vector")
+                
+            if velocity_delta > 0.5:
+                st.success("🚀 Positive Acceleration: Your localized daily mindset is outperforming your historical baseline.")
+            elif velocity_delta < -0.5:
+                st.error("⚠️ Fatigue Dip Detected: Current logs point to an active energy drain compared to your baseline trend.")
+            else:
+                st.info("⚖️ Stable Equilibrium: Current velocity matches your steady historical momentum.")
+            # ==========================================
+            # 📊 DYNAMIC MOOD DISTRIBUTION MATRIX (NEW)
+            # ==========================================
+            st.markdown("#### 📉 Weekly Sentiment Density Distribution")
+            
+            # Extract and compile a flat vector of recent metrics
+            historical_scores = [log.get("metrics", {}).get("sentiment_score", 7) for log in active_window_logs]
+            
+            if historical_scores:
+                # Map structural categorical labels to score ranges for cleaner visualization
+                score_categories = {
+                    10: "Accomplished (10)", 9: "Accomplished (9)", 8: "Accomplished (8)",
+                    7: "Balanced (7)", 6: "Balanced (6)", 5: "Balanced (5)",
+                    4: "Exhausted (4)", 3: "Exhausted (3)", 2: "Exhausted (2)", 1: "Exhausted (1)"
                 }
                 
-                # Commit structural updates
-                save_database_record(DB_FILENAME, entry_payload)
-                st.toast("Data matrix logged!", icon="💾")
+                # Construct a clean relational frequency series
+                distribution_map = []
+                for score in historical_scores:
+                    distribution_map.append({
+                        "Score Level": score,
+                        "Mood Tier": score_categories.get(score, f"Level {score}"),
+                        "Logs Count": 1
+                    })
                 
-                # Render Design Variations
-                score = analysis_data["sentiment_score"]
-                if score >= 8:
-                    st.success(f"Dominant Mood: {analysis_data['dominant_mood']}")
-                    st.metric(label="Sentiment Score", value=f"{score}/10", delta="Excellent State")
-                    st.balloons()
-                elif score >= 6:
-                    st.info(f"Dominant Mood: {analysis_data['dominant_mood']}")
-                    st.metric(label="Sentiment Score", value=f"{score}/10", delta="Stable Matrix", delta_color="off")
-                else:
-                    st.error(f"Dominant Mood: {analysis_data['dominant_mood']}")
-                    st.metric(label="Sentiment Score", value=f"{score}/10", delta="- Fatigue Alert", delta_color="inverse")
-                    
-                st.markdown(f"**Brief Index Summary:**")
-                st.code(analysis_data['summary_tag'], language="text")
-
-            # ⏱️ STOP TELEMETRY CLOCK
-            execution_end_timestamp = time.perf_counter()
-            total_latency_ms = (execution_end_timestamp - execution_start_timestamp) * 1000
-            
-            # Render clear performance metrics below the analytics window
-            st.metric(
-                label="⚡ System Processing Latency", 
-                value=f"{total_latency_ms:.2f} ms", 
-                delta="Target: < 200.00 ms",
-                delta_color="normal" if total_latency_ms < 200 else "inverse"
-            )
-        else:
-            st.info("Awaiting input transmision")
-    st.markdown("---")
-    st.markdown("### 📊 Historical Analytics & Velocity Tracking")
-
-    saved_logs = load_database_records(DB_FILENAME)
-    
-    if not saved_logs:
-        st.warning("Database file empty or uninitialized.")
-    else:
-        # --- COMPUTE TIME-SERIES CLUSTERING ---
-        current_date_str = datetime.now().strftime("%Y-%m-%d")
-        
-        today_scores = []
-        past_scores = []
-        
-        for log in saved_logs:
-            log_ts = log.get("timestamp", "")
-            log_score = log.get("metrics", {}).get("sentiment_score", 7)
-            
-            # Cluster logs based on calendar day matching
-            if log_ts.startswith(current_date_str):
-                today_scores.append(log_score)
+                # Formulate structured analytical dataframe
+                chart_dataframe = pd.DataFrame(distribution_map)
+                
+                # Aggregate entries to compute frequency density per score bracket
+                summary_chart_data = chart_dataframe.groupby(["Mood Tier"]).sum().reset_index()
+                
+                
+                if evicted_count > 0:
+                        st.caption(f"⚡ Performance Optimization Active: Displaying latest {VIEW_WINDOW_LIMIT} trends. ({evicted_count} historical records safely archived on disk).")
+                
+                # Render a high-fidelity native horizontal bar chart
+                st.bar_chart(
+                    data=summary_chart_data,
+                    x="Mood Tier",
+                    y="Logs Count",
+                    use_container_width="stretch"
+                )
             else:
-                past_scores.append(log_score)
-        
-        # --- CALCULATE AGGREGATE COUPLING COEFFICIENTS ---
-        # --- CALCULATE AGGREGATE COUPLING COEFFICIENTS ---
-        total_logs = len(saved_logs)
-        global_avg = sum(log.get("metrics", {}).get("sentiment_score", 7) for log in saved_logs) / total_logs
-        
-        # 🧠 DYNAMIC CACHE EVICTION: Enforce a strict 30-day sliding viewport window
-        VIEW_WINDOW_LIMIT = 30
-        active_window_logs = saved_logs[-VIEW_WINDOW_LIMIT:]  # Slices only the latest 30 records
-        evicted_count = max(0, total_logs - VIEW_WINDOW_LIMIT)
-        
-        today_avg = sum(today_scores) / len(today_scores) if today_scores else None
-        past_avg = sum(past_scores) / len(past_scores) if past_scores else global_avg
-        
-        # Compute Velocity Delta
-        if today_avg is not None:
-            velocity_delta = today_avg - past_avg
-            delta_string = f"{velocity_delta:+.2f} vs. Baseline"
-        else:
-            velocity_delta = 0.0
-            delta_string = "No entries today yet"
-
-        # ⚡ DAY 50: ADVANCED STATISTICAL DRIFT INTERCEPTOR
-        # Calculate the rolling score variance of the last 3 entries to detect sudden mental/productivity shifts
-        recent_3_scores = [log.get("metrics", {}).get("sentiment_score", 7) for log in saved_logs[-3:]]
-        recent_3_avg = sum(recent_3_scores) / len(recent_3_scores) if recent_3_scores else global_avg
-        
-        # Drift Condition: If short-term velocity drops 2.0+ points below the global multi-day average
-        drift_anomaly_detected = (global_avg - recent_3_avg) >= 2.0
-
-        # 🚨 ANOMALOUS SHOCK TRIPWIRE BANNER
-        if drift_anomaly_detected:
-            st.error(f"🚨 **Critical Operational Drift Flagged:** A sudden localized baseline fracture has been detected. Your 3-day momentum average ({recent_3_avg:.1f}/10) has plummeted drastically relative to your lifetime system baseline average ({global_avg:.1f}/10). Investigate burn-out factors immediately.")
-            st.markdown("---")
-
-        stat_col1, stat_col2, stat_col3 = st.columns(3)
-        
-        with stat_col1:
-            st.metric(
-                label="Total Reflections Logged", 
-                value=f"{total_logs} Days"
-            )
-        with stat_col2:
-            st.metric(
-                label="Lifetime Sentiment Avg", 
-                value=f"{global_avg:.1f} / 10",
-                delta="System Baseline",
-                delta_color="off"
-            )
-        with stat_col3:
-           if today_avg is not None:
-                main_velocity_display = f"{velocity_delta:+.2f}"
-                sub_delta_display = f"Today's Avg: {today_avg:.1f}/10"
-           else:
-                main_velocity_display = "N/A"
-                sub_delta_display = "No Entries Today"
-            
-           st.metric(
-                label="Sentiment Velocity Delta", 
-                value=f"{today_avg:.1f} / 10" if today_avg is not None else "N/A", 
-                delta=delta_string,
-                delta_color="normal" if velocity_delta >= 0 else "inverse"
-            )
-
-        # Dynamic Status Trend Card
-        st.markdown("#### Current Directional Vector")
-         
-        if velocity_delta > 0.5:
-            st.success("🚀 Positive Acceleration: Your localized daily mindset is outperforming your historical baseline.")
-        elif velocity_delta < -0.5:
-            st.error("⚠️ Fatigue Dip Detected: Current logs point to an active energy drain compared to your baseline trend.")
-        else:
-            st.info("⚖️ Stable Equilibrium: Current velocity matches your steady historical momentum.")
-        # ==========================================
-        # 📊 DYNAMIC MOOD DISTRIBUTION MATRIX (NEW)
-        # ==========================================
-        st.markdown("#### 📉 Weekly Sentiment Density Distribution")
-        
-        # Extract and compile a flat vector of recent metrics
-        historical_scores = [log.get("metrics", {}).get("sentiment_score", 7) for log in active_window_logs]
-        
-        if historical_scores:
-            # Map structural categorical labels to score ranges for cleaner visualization
-            score_categories = {
-                10: "Accomplished (10)", 9: "Accomplished (9)", 8: "Accomplished (8)",
-                7: "Balanced (7)", 6: "Balanced (6)", 5: "Balanced (5)",
-                4: "Exhausted (4)", 3: "Exhausted (3)", 2: "Exhausted (2)", 1: "Exhausted (1)"
-            }
-            
-            # Construct a clean relational frequency series
-            distribution_map = []
-            for score in historical_scores:
-                distribution_map.append({
-                    "Score Level": score,
-                    "Mood Tier": score_categories.get(score, f"Level {score}"),
-                    "Logs Count": 1
-                })
-            
-            # Formulate structured analytical dataframe
-            chart_dataframe = pd.DataFrame(distribution_map)
-            
-            # Aggregate entries to compute frequency density per score bracket
-            summary_chart_data = chart_dataframe.groupby(["Mood Tier"]).sum().reset_index()
-            
-            
-            if evicted_count > 0:
-                 st.caption(f"⚡ Performance Optimization Active: Displaying latest {VIEW_WINDOW_LIMIT} trends. ({evicted_count} historical records safely archived on disk).")
-            
-            # Render a high-fidelity native horizontal bar chart
-            st.bar_chart(
-                data=summary_chart_data,
-                x="Mood Tier",
-                y="Logs Count",
-                use_container_width=True
-            )
-        else:
-            st.info("Insufficient metrics available to populate density charts.")
-        # --- CHRONOLOGICAL FEED ---
-        st.markdown("#### Chronological Entries Feed")
-        logs_list = list(saved_logs)
-        total_logs = len(logs_list)
-            
-        for index, log in enumerate(reversed(logs_list)):
-            # Map the reverse loop index back to the true absolute disk array index
-            true_disk_index = total_logs - 1 - index
-            
-            ts = log.get("timestamp", "Unknown Time")
-            mood = log.get("metrics", {}).get("dominant_mood", "Balanced")
-            score = log.get("metrics", {}).get("sentiment_score", 7)
-            tag = log.get("metrics", {}).get("summary_tag", "Progress")
-            text = log.get("raw_text", "")
-            
-            with st.expander(f"📅 {ts} | Mood: {mood} ({score}/10)"):
-                st.markdown(f"**Short Tag:** `{tag}`")
-                st.info(text)
+                st.info("Insufficient metrics available to populate density charts.")
+            # --- CHRONOLOGICAL FEED ---
+            st.markdown("#### Chronological Entries Feed")
+            logs_list = list(saved_logs)
+            total_logs = len(logs_list)
                 
-                # 🛠️ THE MUTATION GATE: Targeted Record Erasure
-                # 🛠️ THE MUTATION GATE: Hardened Target Record Erasure
-                if st.button(f"🗑️ Erase Entry Record", key=f"del_{true_disk_index}_{ts[:19].replace(' ', '_')}"):
-                    logs_list.pop(true_disk_index)
+            for index, log in enumerate(reversed(logs_list)):
+                # Map the reverse loop index back to the true absolute disk array index
+                true_disk_index = total_logs - 1 - index
+                
+                ts = log.get("timestamp", "Unknown Time")
+                mood = log.get("metrics", {}).get("dominant_mood", "Balanced")
+                score = log.get("metrics", {}).get("sentiment_score", 7)
+                tag = log.get("metrics", {}).get("summary_tag", "Progress")
+                text = log.get("raw_text", "")
+                
+                with st.expander(f"📅 {ts} | Mood: {mood} ({score}/10)"):
+                    st.markdown(f"**Short Tag:** `{tag}`")
+                    st.info(text)
                     
-                    temp_db_path = f"{DB_FILENAME}.tmp"
-                    try:
-                        # Stream state modifications safely to hidden staging layer first
-                        with open(temp_db_path, "w", encoding="utf-8") as temp_stream:
-                            json.dump(logs_list, temp_stream, indent=4)
+                    # 🛠️ THE MUTATION GATE: Targeted Record Erasure
+                    # 🛠️ THE MUTATION GATE: Hardened Target Record Erasure
+                    if st.button(f"🗑️ Erase Entry Record", key=f"del_{true_disk_index}_{ts[:19].replace(' ', '_')}"):
+                        logs_list.pop(true_disk_index)
                         
-                        # Swap verified file matrix to production path
-                        os.replace(temp_db_path, DB_FILENAME)
+                        temp_db_path = f"{DB_FILENAME}.tmp"
+                        try:
+                            # Stream state modifications safely to hidden staging layer first
+                            with open(temp_db_path, "w", encoding="utf-8") as temp_stream:
+                                json.dump(logs_list, temp_stream, indent=4)
+                            
+                            # Swap verified file matrix to production path
+                            os.replace(temp_db_path, DB_FILENAME)
+                            
+                            st.toast("Record mutated successfully!", icon="💥")
+                            time.sleep(0.2)
+                            st.rerun()
+                        except IOError as mutation_fault:
+                            if os.path.exists(temp_db_path):
+                                os.remove(temp_db_path)
+                            st.error(f"Mutation Failure: {mutation_fault}")
+
+elif active_app == "📹 Personal AI Video Extractor":
+    st.title("📹 Personal AI Video Extractor")
+    st.write("Upload a raw recording file, and let the background script compile structured lecture briefs.")
+    st.markdown("---")
+    
+    # Keep the frontend ultra-lightweight by instantiating the backend class here
+    extractor = MeetingNoteExtractor()
+    
+    # Render the input widget using a unique namespaced key
+    uploaded_file = st.file_uploader(
+        label="Drop your lecture or meeting video file here", 
+        type=["mp4", "mov", "avi"],
+        key="extractor_video_file"
+    )
+    
+    if uploaded_file is not None:
+        st.video(uploaded_file)
+        
+        # Action button to trigger processing execution
+        if st.button("🚀 Trigger Pandy Note Extraction", type="primary"):
+            with st.spinner("📥 Extracting soundtracks and compiling notes..."):
+                try:
+                    # Write out the temporary file stream so the backend can path it
+                    temp_filename = f"temp_runtime_{uploaded_file.name}"
+                    with open(temp_filename, "wb") as f:
+                        f.write(uploaded_file.read())
+                    
+                    # Call the isolated pipeline logic in exactly one line of code
+                    structured_notes = extractor.run_pipeline(temp_filename)
+                    st.success("🎉 Note extraction successful!")
+                    st.subheader(f"📝 Profile: {structured_notes['meeting_title']}")
+                    st.write("**📋 Structured Summary:**")
+                    st.info(structured_notes['detailed_summary'])
+                    
+                except Exception as e:
+                    st.error(f"❌ Core pipeline execution crashed: {str(e)}")
+                finally: 
+                    # Immediate physical cleanup of the temporary video container
+                    if os.path.exists(temp_filename):
+                        os.remove(temp_filename)
+else:
+       st.title("⚡ AI Data Ingestion Engine")
+st.caption("Day 58: Connecting Streamlit UI to PostgreSQL Pipeline")
+
+st.markdown("---")
+
+# Form Inputs
+with st.form("job_ingestion_form", clear_on_submit=True):
+    st.subheader("📥 Ingest New Job Description")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        job_title = st.text_input("Job Title *", placeholder="e.g. AI Engineer")
+    with col2:
+        company_name = st.text_input("Company Name *", placeholder="e.g. Acme Corp")
+        
+    keywords_input = st.text_input("Keywords (comma separated)", placeholder="Python, PostgreSQL, Streamlit, LLMs")
+    
+    raw_text = st.text_area("Raw Job Description *", placeholder="Paste the full job post text here...", height=200)
+    
+    submit_btn = st.form_submit_button("🚀 Insert into Database", use_container_width=True)
+
+# Form Submission Processing
+if submit_btn:
+    # Basic validation
+    if not job_title.strip() or not company_name.strip() or not raw_text.strip():
+        st.error("⚠️ Please fill in all required fields (Title, Company, and Raw Text).")
+    else:
+        # Process keywords into a list
+        keywords = [kw.strip() for kw in keywords_input.split(",") if kw.strip()]
+        
+        # Call our Day 57 backend service function!
+        with st.spinner("Ingesting into PostgreSQL..."):
+            inserted_id = insert_job_description(
+                title=job_title.strip(),
+                company=company_name.strip(),
+                raw_text=raw_text.strip(),
+                keywords=keywords
+            )
+            
+        if inserted_id:
+            st.success(f"✅ Data Ingested Successfully! Database UUID: `{inserted_id}`")
+        else:
+            st.error("❌ Failed to insert data into the database. Check console logs.")                     
                         
-                        st.toast("Record mutated successfully!", icon="💥")
-                        time.sleep(0.2)
-                        st.rerun()
-                    except IOError as mutation_fault:
-                        if os.path.exists(temp_db_path):
-                            os.remove(temp_db_path)
-                        st.error(f"Mutation Failure: {mutation_fault}")
+                   
