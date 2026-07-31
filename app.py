@@ -14,7 +14,8 @@ from memory_service import MemoryService  # Adjust file name if different
 from panda_brain_v1 import PandaBrain
 from extractor import MeetingNoteExtractor
 from dotenv import load_dotenv
-from ingest_service import insert_job_description
+from ingest_service import insert_job_description,search_jobs
+from extractor import JobMetadataExtractor
 # =====================================================================
 # GLOBAL CONFIGURATION & PERFORMANCE SETTINGS
 # =====================================================================
@@ -685,49 +686,154 @@ elif active_app == "📹 Personal AI Video Extractor":
                     # Immediate physical cleanup of the temporary video container
                     if os.path.exists(temp_filename):
                         os.remove(temp_filename)
-else:
+elif active_app=="AI Data Ingestion Engine":
        st.title("⚡ AI Data Ingestion Engine")
-st.caption("Day 58: Connecting Streamlit UI to PostgreSQL Pipeline")
+       st.caption("Day 58: Connecting Streamlit UI to PostgreSQL Pipeline")
 
-st.markdown("---")
+       st.markdown("---")
 
-# Form Inputs
-with st.form("job_ingestion_form", clear_on_submit=True):
-    st.subheader("📥 Ingest New Job Description")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        job_title = st.text_input("Job Title *", placeholder="e.g. AI Engineer")
-    with col2:
-        company_name = st.text_input("Company Name *", placeholder="e.g. Acme Corp")
-        
-    keywords_input = st.text_input("Keywords (comma separated)", placeholder="Python, PostgreSQL, Streamlit, LLMs")
-    
-    raw_text = st.text_area("Raw Job Description *", placeholder="Paste the full job post text here...", height=200)
-    
-    submit_btn = st.form_submit_button("🚀 Insert into Database", use_container_width=True)
+       # Form Inputs
+       with st.form("job_ingestion_form", clear_on_submit=True):
+        st.subheader("📥 Ingest New Job Description")
 
-# Form Submission Processing
-if submit_btn:
-    # Basic validation
-    if not job_title.strip() or not company_name.strip() or not raw_text.strip():
-        st.error("⚠️ Please fill in all required fields (Title, Company, and Raw Text).")
-    else:
-        # Process keywords into a list
+        col1, col2 = st.columns(2)
+        with col1:
+          job_title = st.text_input("Job Title *", placeholder="e.g. AI Engineer")
+
+        with col2:
+         company_name = st.text_input("Company Name *", placeholder="e.g. Acme Corp")
+
+         keywords_input = st.text_input("Keywords (comma separated)", placeholder="Python, PostgreSQL, Streamlit, LLMs")
+
+         raw_text = st.text_area("Raw Job Description *", placeholder="Paste the full job post text here...", height=200)
+
+       submit_btn = st.form_submit_button("🚀 Insert into Database", use_container_width=True)
+
+      # Form Submission Processing
+       if submit_btn:
+       # Basic validation
+        if not job_title.strip() or not company_name.strip() or not raw_text.strip():
+         st.error("⚠️ Please fill in all required fields (Title, Company, and Raw Text).")
+       else:
+       # Process keywords into a list
         keywords = [kw.strip() for kw in keywords_input.split(",") if kw.strip()]
-        
+
         # Call our Day 57 backend service function!
-        with st.spinner("Ingesting into PostgreSQL..."):
-            inserted_id = insert_job_description(
-                title=job_title.strip(),
-                company=company_name.strip(),
-                raw_text=raw_text.strip(),
-                keywords=keywords
-            )
+       with st.spinner("Ingesting into PostgreSQL..."):
+        inserted_id = insert_job_description(
+        title=job_title.strip(),
+         company=company_name.strip(),
+         raw_text=raw_text.strip(),
+         keywords=keywords
+       )
+
+       if inserted_id:
+        st.success(f"✅ Data Ingested Successfully! Database UUID: `{inserted_id}`")
+       else:
+        st.error("❌ Failed to insert data into the database. Check console logs.")                     
+
+else:
+    st.set_page_config(page_title="AI Job Engine", layout="wide")
+
+    st.title("⚡ AI Job Description & Search Engine")
+
+    # Sidebar navigation
+    menu = st.sidebar.radio("Navigation", ["🔍 Search & Analytics", "📥 Ingest New Job"])
+
+    # ==========================================
+    # PAGE 1: SEARCH & ANALYTICS
+    # ==========================================
+    if menu == "🔍 Search & Analytics":
+        st.header("🔍 Query Job Database")
+
+        # Filter Section
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            search_term = st.text_input("Search Title or Company", placeholder="e.g. Microsoft, AI Architect")
             
-        if inserted_id:
-            st.success(f"✅ Data Ingested Successfully! Database UUID: `{inserted_id}`")
+        with col2:
+            skill_options = ["python", "Ruby", "c", "PostgreSQL", "Streamlit", "Docker", "REST APIs"]
+            selected_keywords = st.multiselect("Filter by Skills (Array Overlap)", options=skill_options)
+
+        limit = st.slider("Max Results", min_value=1, max_value=50, value=10)
+
+        # Fetch results from PostgreSQL
+        results = search_jobs(
+            search_term=search_term if search_term else None,
+            keywords=selected_keywords if selected_keywords else None,
+            limit=limit
+        )
+
+        # Analytics Metrics
+        st.markdown("---")
+        m1, m2 = st.columns(2)
+        m1.metric("Jobs Found", len(results))
+        
+        all_matched_keywords = set()
+        for r in results:
+            if r.get("extracted_keywords"):
+                all_matched_keywords.update(r["extracted_keywords"])
+        m2.metric("Unique Keywords in Query", len(all_matched_keywords))
+        st.markdown("---")
+
+        # Display Results Card View
+        if results:
+            for job in results:
+                with st.expander(f"📌 {job['title']} — {job['company']}"):
+                    st.write(f"**UUID:** `{job['id']}`")
+                    st.write(f"**Created At:** {job['created_at']}")
+                    
+                    keywords = job.get('extracted_keywords', [])
+                    if keywords:
+                        st.write("**Extracted Keywords:**")
+                        st.markdown(" ".join([f"`{kw}`" for kw in keywords]))
+                    
+                    st.subheader("Raw Text")
+                    st.text(job.get('raw_text', ''))
         else:
-            st.error("❌ Failed to insert data into the database. Check console logs.")                     
-                        
-                   
+            st.info("No records matched your search parameters.")
+
+    # ==========================================
+    # PAGE 2: AI-POWERED INGESTION
+    # ==========================================
+    elif menu == "📥 Ingest New Job":
+        st.subheader("📥 AI Auto-Extraction & Ingestion")
+        st.caption("Paste raw text below. Gemini will extract title, company, and keywords automatically.")
+
+        with st.form("auto_job_ingestion_form", clear_on_submit=True):
+            raw_text = st.text_area("Raw Job Description *", placeholder="Paste job post here...", height=220)
+            submit_btn = st.form_submit_button("🚀 Extract & Ingest via Gemini", use_container_width=True)
+
+        if submit_btn:
+            if not raw_text.strip():
+                st.error("⚠️ Please paste raw job text before submitting.")
+            else:
+                with st.spinner("Extracting metadata with Gemini and saving to PostgreSQL..."):
+                    # 1. Run LLM Extractor
+                    extractor = JobMetadataExtractor()
+                    extracted_data = extractor.extract_metadata(raw_text)
+                    
+                    title = extracted_data.get("job_title", "Unspecified Title")
+                    company = extracted_data.get("company", "Unspecified Company")
+                    tech_skills = extracted_data.get("tech_skills", [])
+                    soft_skills = extracted_data.get("soft_skills", [])
+                    keywords = list(set(tech_skills + soft_skills))
+                    
+                    # 2. Insert into DB
+                    inserted_id = insert_job_description(
+                        title=title,
+                        company=company,
+                        raw_text=raw_text.strip(),
+                        keywords=keywords
+                    )
+
+                    if inserted_id:
+                        st.success(f"✅ Data Ingested Successfully! Database UUID: `{inserted_id}`")
+                        st.json({
+                            "extracted_title": title,
+                            "extracted_company": company,
+                            "extracted_keywords": keywords
+                        })
+                    else:
+                        st.error("❌ Failed to insert data into PostgreSQL.")
