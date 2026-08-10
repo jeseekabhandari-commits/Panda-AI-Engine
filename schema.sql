@@ -34,3 +34,26 @@ CREATE TABLE IF NOT EXISTS analysis_scores (
 
 -- Create index for quantitative ranking queries (Must target sub-50ms read criteria)
 CREATE INDEX IF NOT EXISTS idx_scores_match ON analysis_scores(match_score DESC);
+
+-- Track batch lifecycle
+CREATE TABLE IF NOT EXISTS batch_jobs (
+    batch_id VARCHAR(36) PRIMARY KEY,
+    job_id VARCHAR(50) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    total_files INT NOT NULL,
+    processed_files INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Track individual resume evaluation results within a batch
+CREATE TABLE IF NOT EXISTS match_results (
+    id SERIAL PRIMARY KEY,
+    batch_id VARCHAR(36) REFERENCES batch_jobs(batch_id) ON DELETE CASCADE,
+    filename VARCHAR(255) NOT NULL,
+    jaccard_score FLOAT NOT NULL,
+    match_percentage FLOAT NOT NULL,
+    matched_skills TEXT[] NOT NULL,
+    missing_skills TEXT[] NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panda AI - Candidate Matching Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-900 text-gray-100 font-sans min-h-screen p-8">
+    <div class="max-w-5xl mx-auto space-y-8">
+
+        <!-- Header -->
+        <div class="border-b border-gray-800 pb-4 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-emerald-400">🐼 Panda AI Candidate Matcher</h1>
+                <p class="text-gray-400 text-sm mt-1">Batch Resume Parsing & Skill Alignment Engine</p>
+            </div>
+            <span
+                class="bg-emerald-950 text-emerald-400 border border-emerald-800 text-xs px-3 py-1 rounded-full font-mono">Day
+                70 Build</span>
+        </div>
+
+        <!-- Upload Card -->
+        <div class="bg-gray-800/60 border border-gray-700/60 rounded-xl p-6 shadow-xl">
+            <h2 class="text-lg font-semibold text-white mb-4">Start Batch Processing</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div class="md:col-span-1">
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Target Job ID</label>
+                    <input type="text" id="jobId" value="job_101" placeholder="e.g., job_101"
+                        class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Select Candidate PDFs</label>
+                    <input type="file" id="resumeFiles" multiple accept=".pdf"
+                        class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 cursor-pointer bg-gray-900 border border-gray-700 rounded-lg">
+                </div>
+            </div>
+            <button onclick="startBatchJob()" id="submitBtn"
+                class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 rounded-lg transition duration-200 text-sm shadow-lg shadow-emerald-900/20">
+                Execute Batch Analysis
+            </button>
+        </div>
+
+        <!-- Progress Tracker -->
+        <div id="progressContainer"
+            class="hidden bg-gray-800/60 border border-gray-700/60 rounded-xl p-6 shadow-xl space-y-3">
+            <div class="flex justify-between items-center text-sm">
+                <span class="font-medium text-gray-300">Batch Processing Status</span>
+                <span id="progressText" class="font-mono text-emerald-400">0%</span>
+            </div>
+            <div class="w-full bg-gray-900 rounded-full h-3 overflow-hidden border border-gray-700">
+                <div id="progressBar" class="bg-emerald-500 h-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <div class="flex justify-between text-xs text-gray-400 font-mono">
+                <span id="batchIdText">Batch ID: -</span>
+                <span id="statusState">State: PENDING</span>
+            </div>
+        </div>
+
+        <!-- Results Table -->
+        <div id="resultsContainer" class="hidden bg-gray-800/60 border border-gray-700/60 rounded-xl p-6 shadow-xl">
+            <h3 class="text-lg font-semibold text-white mb-4">Ranked Candidate Evaluation Results</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm border-collapse">
+                    <thead>
+                        <tr class="border-b border-gray-700 text-gray-400 text-xs uppercase font-mono">
+                            <th class="py-3 px-4">Candidate File</th>
+                            <th class="py-3 px-4">Match %</th>
+                            <th class="py-3 px-4">Matched Competencies</th>
+                            <th class="py-3 px-4">Missing Requirements</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsTableBody" class="divide-y divide-gray-700/50"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let activeBatchId = null;
+        let pollTimer = null;
+
+        async function startBatchJob() {
+            const jobId = document.getElementById('jobId').value;
+            const fileInput = document.getElementById('resumeFiles');
+            const submitBtn = document.getElementById('submitBtn');
+
+            if (!jobId || fileInput.files.length === 0) {
+                alert('Please provide a valid Job ID and select at least one PDF resume.');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'Uploading Batch...';
+
+            const formData = new FormData();
+            formData.append('job_id', jobId);
+            for (let file of fileInput.files) {
+                formData.append('files', file);
+            }
+
+            try {
+                const response = await fetch('/api/v1/match-resumes-batch', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    activeBatchId = data.batch_id;
+
+                    document.getElementById('progressContainer').classList.remove('hidden');
+                    document.getElementById('resultsContainer').classList.add('hidden');
+                    document.getElementById('batchIdText').innerText = 'Batch ID: ' + activeBatchId.substring(0, 8) + '...';
+
+                    pollTimer = setInterval(pollStatus, 1500);
+                } else {
+                    alert('Error submitting batch request.');
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = 'Execute Batch Analysis';
+                }
+            } catch (err) {
+                alert('Network error connecting to API.');
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'Execute Batch Analysis';
+            }
+        }
+
+        async function pollStatus() {
+            if (!activeBatchId) return;
+
+            const response = await fetch('/api/v1/batch-status/' + activeBatchId);
+            if (!response.ok) return;
+
+            const data = await response.json();
+            const total = data.total_files || 1;
+            const processed = data.processed_files || 0;
+            const percent = Math.round((processed / total) * 100);
+
+            document.getElementById('progressBar').style.width = percent + '%';
+            document.getElementById('progressText').innerText = percent + '% (' + processed + '/' + total + ')';
+            document.getElementById('statusState').innerText = 'State: ' + data.status;
+
+            if (data.status === 'COMPLETED') {
+                clearInterval(pollTimer);
+                fetchResults();
+            }
+        }
+
+        async function fetchResults() {
+            const response = await fetch('/api/v1/batch-results/' + activeBatchId);
+            if (!response.ok) return;
+
+            const data = await response.json();
+            const tbody = document.getElementById('resultsTableBody');
+            tbody.innerHTML = '';
+
+            data.results.forEach(item => {
+                const matchedTags = item.matched_skills.map(s =>
+                    '<span class="bg-emerald-950 text-emerald-400 border border-emerald-800 text-xs px-2 py-0.5 rounded font-mono mr-1">' + s + '</span>'
+                ).join('') || '<span class="text-gray-500 italic">None</span>';
+
+                const missingTags = item.missing_skills.map(s =>
+                    '<span class="bg-rose-950 text-rose-400 border border-rose-800 text-xs px-2 py-0.5 rounded font-mono mr-1">' + s + '</span>'
+                ).join('') || '<span class="text-gray-500 italic">None</span>';
+
+                const row = `
+                    <tr class="hover:bg-gray-800/40 transition">
+                        <td class="py-3 px-4 font-medium text-white">${item.filename}</td>
+                        <td class="py-3 px-4">
+                            <span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-bold px-2.5 py-1 rounded-lg text-xs font-mono">
+                                ${item.match_percentage}%
+                            </span>
+                        </td>
+                        <td class="py-3 px-4">${matchedTags}</td>
+                        <td class="py-3 px-4">${missingTags}</td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+
+            document.getElementById('resultsContainer').classList.remove('hidden');
+
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = false;
+            submitBtn.innerText = 'Execute Batch Analysis';
+        }
+    </script>
+</body>
+
+</html>
