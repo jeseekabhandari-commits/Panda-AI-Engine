@@ -1,114 +1,82 @@
 🐼 Panda-AI-Engine
-An AI-driven character management system built with Python.
+An enterprise-grade, state-managed AI character engine and multi-tenant Retrieval-Augmented Generation (RAG) platform built with Python, FastAPI, LangChain, ChromaDB, and Gemini.
 
-Overview
-This project is part of a 100-Day AI Product Engineering Sprint. It is a state-managed engine that simulates an AI character named "Pandy." The engine uses Object-Oriented Programming (OOP) to manage multiple character instances, each with its own persistent memory and metabolism logic.
+📌 Overview
+This repository represents the active development evolution of Pandy, an interactive AI companion and smart document reasoning engine built as part of a 100-Day AI Product Engineering Sprint.
 
-Key Features
-1)Dynamic Character Management: Automatically detects and loads character profiles from local JSON storage.
+The system has evolved from a local, hardware-aware CLI virtual pet into a full-stack, multi-tenant enterprise system capable of real-time environmental context integration, state-managed conversational personalities, and secure, isolated vector document retrieval.
 
-2)Encapsulated Logic: A central PandaCharacter class handles all state updates, saving/loading, and behavior.
+🛠️ Key Features
+Multi-Tenant Document Reasoning (RAG): Ingests PDFs, Word documents (.docx), and plain text files with strict tenant isolation (tenant_id) and vector persistence in ChromaDB.
 
-3)Real-time Environment: Integrates with the Open-Meteo API to fetch live weather data for Kathmandu, which influences the panda's energy levels.
+Context-Grounded Generation: Uses LangChain prompt scaffolding combined with google-generativeai (Gemini) to provide zero-hallucination answers anchored exclusively to retrieved document context.
 
-4)State Decay System: Implements a time-based metabolism where energy levels drop based on the actual time passed since the last       interaction.
+Hardware-Aware Vitals & Metabolism: Monitored via a dedicated vitals.py abstraction layer (psutil), tying CPU load and battery metrics directly to character mood and energy decay.
 
-Tech Stack
-Language: Python
+Dynamic Weather & Real-Time Environment: Integrates with the Open-Meteo API to pull live weather data for Kathmandu, modulating character energy levels dynamically.
 
-Data Persistence: JSON
+State & Memory Management: Persistent JSON storage layer (pandy_memory.json) and reactive UI state tracking via Streamlit.
 
-APIs: Open-Meteo (Weather)
+Resilient Defensive Architecture: Built-in Safe Mode fallbacks, exception handling across sensor networks, and autonomous execution freezes for high-stress system states.
 
-Version Control: Git/GitHub
+🏗️ System Architecture & Sprint ProgressionPlaintext               +-------------------------------------------+
+               |        Pandy Virtual Companion UI         |
+               |         (Streamlit / Local Loop)          |
+               +---------------------++--------------------+
+                                     ||
+                                     \/
+               +-------------------------------------------+
+               |    PandaBrain & Vitals Engine Layer       |
+               | (psutil / Open-Meteo API / Personality)   |
+               +---------------------++--------------------+
+                                     ||
+                                     \/
+               +-------------------------------------------+
+               |   Multi-Tenant RAG Pipeline (FastAPI)     |
+               +---------------------++--------------------+
+                                     ||
+                    +----------------+----------------+
+                    |                                 |
+                    \/                                \/
+      +----------------------------+    +----------------------------+
+      |  ChromaDB Vector Storage   |    |      LangChain + Gemini    |
+      | (Metadata: tenant_id/doc)  |    |  (Context-Grounded Prompt) |
+      +----------------------------+    +----------------------------+
+Sprint Milestones
 
-How to Run
+Phase 1: Core Engine,
 
-1:Clone the repository.
-
-2:Ensure you have the requests library installed: pip install requests.
-
-3:Run python product_manager.py to start the engine.
-
-System Modularization
-
-The engine has been refactored for better scalability and security.
-
-New Module: vitals.py now encapsulates all psutil dependencies, shielding the main brain from low-level hardware calls.
-
-Logic Decoupling: The PandaCharacter now "owns" a VitalsEngine instance, demonstrating a cleaner Class-based architecture.
-
-Hardware-Driven UX: Added a blocking hunger_check loop that prevents system execution during low-power states until the "Feed" (NLP/Command) intent is satisfied.
-
-Robustness: Implemented try-except blocks across sensor readings to ensure a "Safe Mode" fallback if hardware data is unavailable.
-
-      Sprint Update: Emotional State Integration
+ Hardware Vitals & Personality LayerOOP Architecture: Encapsulated state updates, behavior logic, and persistent storage inside the core PandaCharacter class.
  
-Today’s update adds a layer of "Personality" to the system by linking hardware vitals to response strings.
-
-Technical Details:
-
-Module: Added personality.py containing the PandyVoice class🐼🐼.
-
-Data Flow: Refactored the Brain to request a mood_label (String) from the Body, which is then used as a key in the PandyVoice dictionary to return a randomized response.
-
-Fix: Resolved TypeError: unhashable type: 'list' by ensuring the system passes immutable strings for dictionary lookups rather than mutable lists of phrases.
-
-Efficiency: Optimized conditional checks using Pythonic boolean evaluation (e.g., if stats['charge']:).
-        
-        
-           Structural Guardrails & Architectural Review🐼🐼
-Shifted focus to system stability, defensive programming, and verifying internal data flow patterns.
-
-1)Autonomous Interception: Implemented a system-wide freeze within the .make() engine method to intercept user inputs if state evaluates to "stressed".
-
-2)Diagnostic Logging: Upgraded the logging system to capture a structured payload format (f"CRITICAL SHUTDOWN - CPU: {cpu}% | Batt: {batt}%") on failure points instead of loose text strings.
-
-3)Code Review: Audited decoupled communication between personality.py and the main orchestration loop to enforce immutable data hand-offs.
-
-
-  🛡️ Configuration & Runtime Security Layer
-
-The engine utilizes an isolated environment configuration architecture to separate core application logic from sensitive runtime variables (such as third-party AI platform credentials).
-
-### System Flow Diagram
- 🧠 Core Engine Brain Integration (Day 17)
-
-Migrated the natural language pipeline from basic conditional routing to a modular, object-oriented Class structure.
-
-  Architecture Update
-* Encapsulated Subsystems: Isolated all conversational API interfaces into a dedicated `PandaBrain` class within `panda_brain_v1.py`.
-* Centralized Session Handling: Implemented an internal `handle_chat_session()` router to handle I/O data pipelines directly inside the class, reducing main controller (`product_manager.py`) overhead down to a single method invocation.
- Intent Engine Mapping: Integrated the brain seamlessly with the pre-existing `TextBlob` semantic intent filter layer.
- ## 🌐 Live AI Cloud Integration 
-
-Successfully transitioned the `PandaBrain` subsystem from an offline fallback state to a live, production-ready cloud networking architecture.
-
-### Implementation Highlights
-* **Secure Environment Architecture:** Integrated OS-level environment variable fetching via `os.environ.get()` to prevent critical API credential leaks.
-**Live Network Handshake:** Established an active pipeline utilizing `google-generativeai` to transmit user conversational payloads over HTTPS.
- **Dynamic Exception Handling:** Engineered a robust `try/except` lifecycle fallback network layer to instantly revert to offline mode if server timeouts or 404 errors occur.
-
-  🐼 Pandy: AI Virtual Companion Dashboard
-
-Pandy is an interactive, full-stack virtual pet and AI companion ecosystem. Moving away from traditional terminal-bound CLI architectures, this project leverages a reactive web interface to synchronize live companion vitals (energy, mood metrics) directly with an advanced Large Language Model conversational layer.
-
- 🛠️ Features & Architecture
-
-- **Live Session State Management:** Tracks real-time status metrics like Energy and dynamically calculates behavioral moods (`st.session_state`).
-- **Context-Anchored LLM Engine:** Integrates the Gemini API with strict system prompt validation constraints to guarantee the AI's dialogue persona matches active frontend metrics without hallucination.
-- **Persistent Local Storage:** Implements structural file I/O operations to save and reload conversation records and character states seamlessly.
-- **Isolated Network Framework:** Uses a dedicated local network loopback setup to ensure the development sandbox remains secure and fast.
-
- 📂 Project Structure
-
-- `app.py`: Core application UI definitions, interface layouts, and reactive session controllers.
-- `panda_brain_v1.py`: Underlying AI operations manager handling prompt payloads and API execution.
-- `pandy_memory.json`: Structured local storage schema handling persistent data pipelines.
-- `vitals_engine.py`: Internal simulator managing state arithmetic and pet mechanics.
-
-⚡ Setup & Installation
-
-1. Install the required dependencies:
-   ```bash
-   pip install streamlit google-generativeai python-dotenv
+ Hardware Abstraction (vitals.py): Isolated low-level psutil dependencies. Implemented a hardware-driven blocking hunger_check loop during low-power states.
+ 
+ Personality Engine (personality.py): Mapped system metrics to response strings via PandyVoice. Resolved immutable string lookup patterns to ensure reliable state hand-offs.
+ 
+ Runtime Guardrails & Logging: Structured diagnostic logging payloads (f"CRITICAL SHUTDOWN - CPU: {cpu}% | Batt: {batt}%") and system-wide execution freezes during "stressed" states.
+ 
+ Phase 2: Live AI Cloud Integration & Reactive Dashboard
+ 
+ Modular Brain Integration (panda_brain_v1.py): Encapsulated natural language orchestration into PandaBrain with integrated semantic intent filtering (TextBlob).
+ 
+ Live Network Handshake: Transitioned from offline fallbacks to HTTPS pipelines utilizing google-generativeai.
+ 
+ Streamlit Reactive Dashboard (app.py): Deployed a local UI synchronizing companion vitals, energy metrics, and context-anchored chat sessions.
+ 
+ Phase 3: Enterprise Multi-Tenant RAG Architecture 
+ 
+ Vector Embeddings & Overlap Chunking : Engineered a recursive text splitter ($500\text{ chars} / 100\text{ char overlap}$) and persisted embeddings into ChromaDB. Applied explicit metadata filtering (tenant_id) for absolute multi-tenant database isolation.Multi-Format Ingestion: Built support for .pdf, .txt, and .docx parsing via python-docx memory buffers.
+ 
+ Semantic Retrieval & LangChain Integration : Connected ChromaDB retrieval with LangChain's ChatGoogleGenerativeAI pipeline. Aligned vector query signatures (top_k) to construct strict, context-grounded prompt payloads with zero cross-tenant data leak.
+ 
+ 📂 Project StructurePlaintext├── app.py                  # Reactive Streamlit Web Dashboard
+├── main.py                 # FastAPI Application Router & Endpoint Definitions
+├── panda_brain_v1.py       # AI Operations Manager & Prompt Payload Handler
+├── product_manager.py      # Core System Orchestration Script
+├── personality.py          # PandyVoice Personality Mapping & Response Dictionary
+├── vitals.py               # Hardware Metrics & Sensor Subsystem (psutil Wrapper)
+├── vitals_engine.py        # Companion State Arithmetic & Metabolism Simulator
+├── vector_store.py         # ChromaDB Vector Store Handler & Multi-Tenant Querying
+├── services/
+│   └── rag_chain.py        # LangChain Prompt Template & Gemini Integration Pipeline
+├── pandy_memory.json       # Persistent Local Storage for Character State & History
+└── requirements.txt        # System Dependencies

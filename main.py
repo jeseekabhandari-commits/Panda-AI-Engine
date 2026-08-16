@@ -1,3 +1,4 @@
+import io
 import logging
 import time
 import uuid
@@ -7,10 +8,11 @@ from typing import List, Dict, Any
 
 from fastapi import (
     FastAPI, BackgroundTasks, HTTPException, status, 
-    File, UploadFile, Form, Request
+    File, UploadFile, Form, Request, APIRouter
 )
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
+from pypdf import PdfReader
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -24,7 +26,8 @@ from db import (
     get_batch_job_from_db, 
     get_match_results_by_batch
 )
-
+from vector_store import ingest_document, query_vector_store
+from rag_chain import run_rag_pipeline
 # Set up logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("uvicorn.error")
@@ -36,6 +39,9 @@ limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(title="Panda AI Engine")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Setup Router for Vector Store Document Processing
+router = APIRouter(prefix="/documents", tags=["Vector Store Ingestion"])
 
 # Initialize Extractor
 extractor = ResumeExtractor()
@@ -84,10 +90,9 @@ def extract_skills_with_retry(text: str, max_retries: int = 3) -> dict:
 
     while retries < max_retries:
         try:
-            # Execute extraction via ResumeExtractor
             extraction_result = extractor.extract_resume_skills(text)
             extracted = extraction_result.get("candidate_skills", [])
-            required = ["Python", "PostgreSQL", "FastAPI", "Docker", "Git"]  # Standard target baseline
+            required = ["Python", "PostgreSQL", "FastAPI", "Docker", "Git"]
             return {
                 "extracted_skills": extracted,
                 "required_skills": required
@@ -135,7 +140,86 @@ def process_single_resume_worker(batch_id: str, filename: str, file_bytes: bytes
         logger.error(f"Unexpected error processing {filename}: {str(e)}")
 
 
-# --- Endpoints ---
+def extract_text_from_file(file: UploadFile, contents: bytes) -> str:
+    """Extracts raw text from uploaded PDF or TXT files."""
+    filename = file.filename.lower()
+    
+    if filename.endswith(".txt"):
+        try:
+            return contents.decode("utf-8")
+        except UnicodeDecodeError:
+            return contents.decode("latin-1")
+            
+    elif filename.endswith(".pdf"):
+        pdf_file = io.BytesIO(contents)
+        reader = PdfReader(pdf_file)
+        extracted_text = []
+        for page in reader.pages:
+            text = page.extract_text()
+            if text:
+                extracted_text.append(text)
+        return "\n".join(extracted_text)
+        
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unsupported file type. Please upload a .txt or .pdf file."
+        )
+
+
+# --- Vector Ingestion & Document Router Endpoints ---
+
+@router.post("/ingest", status_code=status.HTTP_201_CREATED)
+async def upload_and_ingest_document(
+    tenant_id: str = Form(..., description="Target Tenant ID for data isolation"),
+    file: UploadFile = File(..., description="Document file (.pdf or .txt)")
+) -> Dict[str, Any]:
+    """
+    Accepts a document upload, parses the text content, and streams
+    chunked vector embeddings into ChromaDB with tenant metadata tagging.
+    """
+    file_bytes = await file.read()
+    if not file_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Uploaded file is empty."
+        )
+    
+    extracted_text = extract_text_from_file(file, file_bytes)
+    
+    if not extracted_text.strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Could not extract readable text from the provided document."
+        )
+    
+    doc_id = f"doc_{uuid.uuid4().hex[:12]}"
+    
+    ingestion_result = ingest_document(
+        doc_id=doc_id,
+        tenant_id=tenant_id,
+        raw_text=extracted_text
+    )
+    
+    return {
+        "message": "Document ingested successfully into vector store",
+        "doc_id": doc_id,
+        "filename": file.filename,
+        "tenant_id": tenant_id,
+        "chunks_stored": ingestion_result["chunks_stored"]
+    }
+
+@router.post("/query", status_code=status.HTTP_200_OK)
+async def query_document(tenant_id: str = Form(...), query: str = Form(...)):
+    """Queries the ChromaDB vector store filtered by tenant ID."""
+    context_chunks = query_vector_store(tenant_id=tenant_id, query_text=query)
+    return context_chunks
+
+# Include Document Vector Store Router
+app.include_router(router)
+
+
+# --- Main Application Endpoints ---
 
 @app.get("/")
 def read_root():
@@ -147,7 +231,7 @@ async def get_dashboard():
 
 @app.get("/health", status_code=status.HTTP_200_OK)
 def health_check():
-    return {"status": "online", "engine": "Gemini + PostgreSQL Matcher"}
+    return {"status": "online", "engine": "Gemini + PostgreSQL + ChromaDB Vector Matcher"}
 
 @app.post("/api/v1/match-resume", response_model=MatchResponse, status_code=status.HTTP_200_OK)
 def match_resume_to_job(payload: ResumeMatchRequest):
@@ -277,3 +361,26 @@ def get_batch_results(batch_id: str):
         "total_candidates": len(results),
         "results": results
     }
+
+@router.post("/rag-query", status_code=status.HTTP_200_OK)
+async def perform_rag_query(
+    tenant_id: str = Form(..., description="Target Tenant ID"),
+    query: str = Form(..., description="Question to ask against ingested documents")
+):
+    """
+    Retrieves matching document chunks from ChromaDB for the tenant and uses
+    LangChain + Gemini to return a strictly grounded answer.
+    """
+    try:
+        result = run_rag_pipeline(tenant_id=tenant_id, query=query)
+        return {
+            "tenant_id": tenant_id,
+            "query": query,
+            "answer": result["answer"],
+            "retrieved_sources": result["source_chunks"]
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"RAG Pipeline Error: {str(e)}"
+        )
