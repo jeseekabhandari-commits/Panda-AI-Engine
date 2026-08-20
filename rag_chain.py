@@ -3,6 +3,8 @@ from typing import List, Dict, Any
 from langchain_core.prompts import PromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from vector_store import query_vector_store
+from vector_store import query_vector_store_with_scores
+from reranker import filter_and_rerank_chunks
 
 # Initialize Gemini Chat Model via LangChain
 llm = ChatGoogleGenerativeAI(
@@ -35,29 +37,30 @@ prompt_template = PromptTemplate(
     template=RAG_PROMPT_TEMPLATE
 )
 
-def run_rag_pipeline(tenant_id: str, query: str, top_k: int = 4) -> Dict[str, Any]:
-    """
-    1. Retrieves top-k matching chunks for tenant_id from ChromaDB.
-    2. Formats context into LangChain prompt template.
-    3. Invokes Gemini LLM to produce grounded answer.
-    """
-    # 1. Retrieve vector chunks
-    retrieved_chunks = query_vector_store(tenant_id=tenant_id, query_text=query, top_k=top_k)
+def run_rag_pipeline(tenant_id: str, query: str, top_k: int = 8) -> Dict:
+    raw_results = query_vector_store_with_scores(tenant_id=tenant_id, query_text=query, top_k=top_k)
     
-    if not retrieved_chunks:
+    # 2. Apply distance thresholding and re-ranking
+    filtered_chunks = filter_and_rerank_chunks(
+        raw_results=raw_results, 
+        query=query, 
+        max_distance_threshold=0.50, 
+        top_n=3
+    )
+    
+    # Early exit if zero chunks pass distance threshold
+    if not filtered_chunks:
         return {
-            "answer": "No relevant documents found for this tenant.",
+            "answer": "I cannot find relevant information in the provided document.",
             "source_chunks": []
         }
         
-    # 2. Combine chunk texts into single context block
-    formatted_context = "\n\n---\n\n".join(retrieved_chunks)
-    
-    # 3. Format prompt and invoke LLM
+    # 3. Format grounded context for Gemini
+    formatted_context = "\n\n---\n\n".join(filtered_chunks)
     formatted_prompt = prompt_template.format(context=formatted_context, query=query)
     response = llm.invoke(formatted_prompt)
     
     return {
         "answer": response.content,
-        "source_chunks": retrieved_chunks
+        "source_chunks": filtered_chunks
     }

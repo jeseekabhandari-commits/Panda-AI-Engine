@@ -50,3 +50,23 @@ def query_vector_store(tenant_id: str, query_text: str, top_k: int = 3) -> Dict[
         where={"tenant_id": tenant_id}  # Enforces B2B Tenant Isolation
     )
     return results["documents"][0] if results["documents"] else []
+
+def query_vector_store_with_scores(tenant_id: str, query_text: str, top_k: int = 10) -> list[dict]:
+    """
+    Queries ChromaDB and returns documents alongside their cosine distance scores.
+    Lower distance = Higher semantic similarity.
+    """
+    results = collection.query(
+        query_texts=[query_text],
+        n_results=top_k,
+        where={"tenant_id": tenant_id},
+        include=["documents", "distances"]
+    )
+    
+    if not results or "documents" not in results or not results["documents"][0]:
+        return []
+
+    docs = results["documents"][0]
+    distances = results["distances"][0] if "distances" in results else [0.0] * len(docs)
+
+    return [{"content": doc, "distance": dist} for doc, dist in zip(docs, distances)]
