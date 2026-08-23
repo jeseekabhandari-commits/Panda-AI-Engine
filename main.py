@@ -27,7 +27,7 @@ from db import (
     get_match_results_by_batch
 )
 from vector_store import ingest_document, query_vector_store
-from rag_chain import run_rag_pipeline
+from rag_chain import run_rag_pipeline,run_conversational_rag
 # Set up logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("uvicorn.error")
@@ -384,3 +384,19 @@ async def perform_rag_query(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"RAG Pipeline Error: {str(e)}"
         )
+
+@router.post("/chat-rag", status_code=status.HTTP_200_OK)
+async def perform_chat_rag(
+    tenant_id: str = Form(..., description="Tenant Organization ID"),
+    session_id: str = Form(..., description="Unique Session/Thread ID"),
+    query: str = Form(..., description="User query or follow-up question")
+):
+    """Multi-turn RAG route preserving session history across conversations."""
+    try:
+        result = run_conversational_rag(tenant_id=tenant_id, session_id=session_id, query=query)
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Conversational RAG Error: {str(e)}"
+        )    
