@@ -11,10 +11,39 @@ from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_google_genai import ChatGoogleGenerativeAI
 from vector_store import query_vector_store_with_scores
 from reranker import filter_and_rerank_chunks
-
+from sqlalchemy import create_engine
+from langchain_postgres import PostgresChatMessageHistory
 # Initialize Gemini Chat Model via LangChain
+
+# Database Connection URL (e.g., PostgreSQL local or cloud URI)
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/panda_db")
+
+# Initialize SQLAlchemy Engine
+engine = create_engine(DATABASE_URL)
+
+# Table name where chat histories will be automatically created & stored
+TABLE_NAME = "chat_message_history"
+
+def get_postgres_session_history(session_id: str) -> PostgresChatMessageHistory:
+    """
+    Retrieves or creates a persistent PostgreSQL-backed chat history instance
+    isolated by unique session_id.
+    """
+    return PostgresChatMessageHistory(
+        table_name=TABLE_NAME,
+        session_id=session_id,
+        sync_connection=engine
+    )
+
+# Prompt Scaffolding
+CONVERSATIONAL_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", "You are an expert AI Assistant. Answer strictly based on the provided document context below.\n\nContext:\n{context}\n\nIf context is empty, state: 'I cannot find relevant information in the provided document.'"),
+    MessagesPlaceholder(variable_name="history"),
+    ("human", "{query}")
+])
+
 llm = ChatGoogleGenerativeAI(
-    model="gemini-pro",
+    model="gemini-3.6-flash",
     temperature=0.2,
     google_api_key=os.getenv("GEMINI_API_KEY")
 )
@@ -60,7 +89,7 @@ CONVERSATIONAL_PROMPT = ChatPromptTemplate.from_messages([
     ("human", "{query}")
 ])
 
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.2)
+llm = ChatGoogleGenerativeAI(model="gemini-3.6-flash", temperature=0.2)
 
 # Chain wrapping prompt and LLM
 base_chain = CONVERSATIONAL_PROMPT | llm
@@ -74,15 +103,16 @@ conversational_rag_chain = RunnableWithMessageHistory(
 )
 
 def run_conversational_rag(tenant_id: str, session_id: str, query: str) -> Dict[str, Any]:
-    """Runs two-stage retrieval and passes context + query into session-aware chain."""
-    # 1. Retrieve & Re-rank
+    """Runs multi-stage retrieval + persists dialogue state to PostgreSQL."""
     raw_results = query_vector_store_with_scores(tenant_id=tenant_id, query_text=query, top_k=8)
     filtered_chunks = filter_and_rerank_chunks(raw_results, query=query, max_distance_threshold=0.50, top_n=3)
     
     formatted_context = "\n\n---\n\n".join(filtered_chunks) if filtered_chunks else "No relevant context found."
     
-    # 2. Invoke chain with session config
-    config = {"configurable": {"session_id": f"{tenant_id}:{session_id}"}}
+    # Composite session identifier ensures multi-tenant thread isolation in Postgres
+    composite_session_key = f"{tenant_id}:{session_id}"
+    config = {"configurable": {"session_id": composite_session_key}}
+    
     response = conversational_rag_chain.invoke(
         {"context": formatted_context, "query": query},
         config=config
