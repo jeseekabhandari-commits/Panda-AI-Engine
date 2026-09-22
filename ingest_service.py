@@ -3,7 +3,8 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
 from typing import List, Dict, Any, Optional
-
+from vector_store import collection
+from multimodal_parser import extract_text_and_visuals_from_pdf
 load_dotenv()
 
 def get_db_connection():
@@ -115,3 +116,20 @@ if __name__ == "__main__":
     print(f"Found {len(ms_jobs)} jobs matching 'microsoft':")
     for j in ms_jobs:
         print(f"  - [{j['company']}] {j['title']}")
+
+
+def ingest_multimodal_pdf(tenant_id: str, file_path: str, doc_id: str):
+    """Parses text + visuals and ingests combined chunks into ChromaDB."""
+    chunks = extract_text_and_visuals_from_pdf(file_path)
+    
+    documents = [c["content"] for c in chunks]
+    metadatas = [{"tenant_id": tenant_id, "type": c["type"], "page": c["page"]} for c in chunks]
+    ids = [f"{doc_id}_chunk_{i}" for i in range(len(chunks))]
+
+    collection.add(
+        documents=documents,
+        metadatas=metadatas,
+        ids=ids
+    )
+    return {"status": "success", "chunks_indexed": len(chunks)}        
+

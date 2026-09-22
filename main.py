@@ -1,16 +1,19 @@
 import io
+import os
 import logging
 import time
 import uuid
 from datetime import datetime
 from enum import Enum
 from typing import List, Dict, Any
+from ingest_service import ingest_multimodal_pdf
+import shutil
 
 from fastapi import (
     FastAPI, BackgroundTasks, HTTPException, status, 
     File, UploadFile, Form, Request, APIRouter
 )
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from pypdf import PdfReader
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -27,7 +30,8 @@ from db import (
     get_match_results_by_batch
 )
 from vector_store import ingest_document, query_vector_store
-from rag_chain import run_rag_pipeline,run_conversational_rag
+from rag_chain import run_rag_pipeline, run_conversational_rag, stream_conversational_rag
+
 # Set up logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("uvicorn.error")
@@ -400,3 +404,49 @@ async def perform_chat_rag(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Conversational RAG Error: {str(e)}"
         )    
+
+    router = APIRouter(prefix="/documents", tags=["Documents"])
+
+@router.post("/chat-rag/stream", status_code=status.HTTP_200_OK)
+async def perform_chat_rag_stream(
+    tenant_id: str = Form(..., description="Tenant Organization ID"),
+    session_id: str = Form(..., description="Unique Session/Thread ID"),
+    query: str = Form(..., description="User query or follow-up question")
+):
+    """
+    Async Server-Sent Events (SSE) streaming endpoint for multi-turn RAG.
+    Streams real-time tokens directly to the client interface.
+    """
+    try:
+        return StreamingResponse(
+            stream_conversational_rag(tenant_id=tenant_id, session_id=session_id, query=query),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"  # Prevents Nginx response buffering
+            }
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Streaming RAG Error: {str(e)}"
+        )
+
+
+@router.post("/documents/upload-multimodal", status_code=status.HTTP_201_CREATED)
+async def upload_multimodal_document(
+    tenant_id: str = Form(...),
+    file: UploadFile = File(...)
+):
+    """Uploads and indexes PDFs containing embedded diagrams, charts, and tables."""
+    temp_path = f"/tmp/{file.filename}"
+    try:
+        with open(temp_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        result = ingest_multimodal_pdf(tenant_id=tenant_id, file_path=temp_path, doc_id=file.filename)
+        return result
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)    
