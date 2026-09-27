@@ -1,0 +1,24 @@
+[
+  {
+    "user_input":"What database engine is used for vector storage?",
+    "retrieved_contexts":[
+      "PostgreSQL with pgvector extension handles high-dimensional vector storage and hybrid retrieval."
+    ],
+    "response":"The system uses PostgreSQL with the pgvector extension for storing and searching vector embeddings.",
+    "reference":"PostgreSQL with pgvector is used for vector storage.",
+    "faithfulness":null,
+    "answer_relevancy":null,
+    "context_precision":null
+  },
+  {
+    "user_input":"How is chat history isolated in multi-tenant environments?",
+    "retrieved_contexts":[
+      "Chat history is isolated using a composite session key formatted as tenant_id:session_id in PostgresChatMessageHistory."
+    ],
+    "response":"Multi-tenant isolation is achieved by prefixing session IDs with the tenant ID (tenant_id:session_id).",
+    "reference":"Session histories are isolated using a composite key consisting of tenant_id and session_id.",
+    "faithfulness":null,
+    "answer_relevancy":null,
+    "context_precision":null
+  }
+]
